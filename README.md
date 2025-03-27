@@ -1,2 +1,6 @@
-# RAG-Blueprint
-RAG blueprint
+# Deploy
+
+```
+cd deploy/helm
+./deploy.sh
+```
