@@ -33,17 +33,29 @@ env:
     valueFrom:
       secretKeyRef:
         key: username
-        name: vectordb-app
+        name: pgvector
   - name: POSTGRES_PASSWORD
     valueFrom:
       secretKeyRef:
         key: password
-        name: vectordb-app
+        name: pgvector
+  - name: POSTGRES_PORT
+    valueFrom:
+      secretKeyRef:
+        key: port
+        name: pgvector
   - name: PGVECTOR_DBNAME
     valueFrom:
       secretKeyRef:
         key: dbname
-        name: vectordb-app
+        name: pgvector
+
+readinessProbe:
+  exec:
+    command:
+      - /bin/sh
+      - -c
+      - exec pg_isready -U $POSTGRES_USER -d $PGVECTOR_DBNAME -h 127.0.0.1 -p $POSTGRES_PORT
 
 resources: {}
 
