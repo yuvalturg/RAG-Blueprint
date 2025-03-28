@@ -2,7 +2,6 @@
 
 This guide helps you deploy the **LLaMA Stack RAG UI** on an OpenShift cluster using Helm.
 
----
 
 ## Prerequisites
 
@@ -17,7 +16,6 @@ Before deploying, make sure you have the following:
 - A valid **Hugging Face Token**.
 - Access to meta-llama/Llama-3.2-3B-Instruct model
 
----
 
 ## Node Tolerations
 
@@ -43,7 +41,6 @@ tolerations:
 
 > Ensure your GPU nodes are properly **tainted and labeled** to match the toleration keys.
 
----
 
 ## Deployment Steps
 
@@ -70,7 +67,6 @@ tolerations:
    - Deploy the Helm chart with toleration settings
    - Output the status of the deployment
 
----
 
 ## Post-deployment Verification
 
