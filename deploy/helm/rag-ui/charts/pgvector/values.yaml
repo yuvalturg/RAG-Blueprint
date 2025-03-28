@@ -44,7 +44,7 @@ env:
       secretKeyRef:
         key: port
         name: pgvector
-  - name: PGVECTOR_DBNAME
+  - name: POSTGRES_DBNAME
     valueFrom:
       secretKeyRef:
         key: dbname
@@ -55,7 +55,7 @@ readinessProbe:
     command:
       - /bin/sh
       - -c
-      - exec pg_isready -U $POSTGRES_USER -d $PGVECTOR_DBNAME -h 127.0.0.1 -p $POSTGRES_PORT
+      - exec pg_isready -U $POSTGRES_USER -d $POSTGRES_DBNAME -h 127.0.0.1 -p $POSTGRES_PORT
 
 resources: {}
 
