@@ -37,4 +37,4 @@ kubectl get routes -n $NAMESPACE
 
 oc rollout status sts/pgvector
 oc exec -it sts/pgvector -- psql -U postgres -c "CREATE DATABASE ${POSTGRES_DBNAME};"
-oc exec -it sts/pgvector -- psql -U postgres -c "CREATE EXTENSION VECTOR;"
+oc exec -it sts/pgvector -- psql -U postgres -d ${POSTGRES_DBNAME} -c "CREATE EXTENSION VECTOR;"
