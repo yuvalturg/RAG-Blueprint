@@ -36,6 +36,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
             {{- toYaml .Values.args | nindent 12 }}
+            {{- with .Values.extraArgs }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
           ports:
@@ -46,8 +49,10 @@ spec:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- with .Values.resources }}
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}

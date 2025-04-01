@@ -4,12 +4,6 @@
 
 replicaCount: 1
 
-image:
-  repository: vllm/vllm-openai
-  pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest"
-
 imagePullSecrets: []
 nameOverride: "safety"
 fullnameOverride: "safety"
@@ -37,12 +31,11 @@ service:
   port: 8000
 
 args:
-  - --model
-  - meta-llama/Llama-Guard-3-8B
   - --port
   - "8000"
   - '--max-model-len'
   - '8192'
+
 env:
   - name: VLLM_PORT
     value: "8000"
@@ -52,20 +45,6 @@ env:
         key: HF_TOKEN
         name: huggingface-secret
  
-resources:
-  limits:
-    nvidia.com/gpu: "1"
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
-
 autoscaling:
   enabled: false
 
@@ -97,10 +76,5 @@ volumeMounts:
 #   readOnly: true
 
 nodeSelector: {}
-
-tolerations:
-  - effect: NoSchedule
-    key: odh-notebook
-    value: 'true'
 
 affinity: {}
