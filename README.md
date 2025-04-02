@@ -10,7 +10,7 @@ Before deploying, make sure you have the following:
 - Access to an **OpenShift** cluster with appropriate permissions.
 - Two GPU nodes, one for vLLM and the other for Safety Model(A10 nodes)
 - The label - you can have any label on the node and pass it as part of the parameter to the deploy script. Please refer `deploy.sh`.
-- Helm is installed on your local machine.
+- Helm is installed
 - A valid **Hugging Face Token**.
 - Access to meta-llama/Llama-3.2-3B-Instruct model
 
