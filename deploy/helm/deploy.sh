@@ -9,8 +9,8 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=rag_password
 POSTGRES_DBNAME=rag_blueprint
 
-MINIO_USER=minio
-MINIO_PASSWORD=minio
+MINIO_USER=minio_rag_user
+MINIO_PASSWORD=minio_rag_password
  
 oc new-project $NAMESPACE
 oc create secret -n $NAMESPACE generic huggingface-secret --from-literal=HF_TOKEN="$HF_TOKEN"
