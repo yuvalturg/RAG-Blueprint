@@ -5,10 +5,10 @@
 replicaCount: 1
 
 image:
-  repository: quay.io/sauagarw/llama-stack-ui
+  repository: quay.io/yuvalturg/llamastack-dist-ui
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest"
+  tag: 0.1.9
 
 imagePullSecrets: []
 nameOverride: ""
@@ -99,15 +99,41 @@ tolerations: []
 
 affinity: {}
 
+llama-stack:
+  extraEnv:
+    - name: INFERENCE_MODEL
+      value: meta-llama/Llama-3.2-8B-Instruct
+    - name:  SAFETY_MODEL
+      value: meta-llama/Llama-Guard-3-8B
+
 llama-serve:
+  extraArgs:
+    - --model
+    - meta-llama/Llama-3.2-8B-Instruct
   tolerations:
     - effect: NoSchedule
       key: g6e-gpu
       value: 'true'
+  resources:
+    limits:
+      nvidia.com/gpu: "1"
+  image:
+    repository: vllm/vllm-openai
+    pullPolicy: IfNotPresent
+    tag: latest
 
 safety-model:
+  extraArgs:
+    - --model
+    - meta-llama/Llama-Guard-3-8B
   tolerations:
     - effect: NoSchedule
       key: odh-notebook
       value: 'true'
-  
+  resources:
+    limits:
+      nvidia.com/gpu: "1"
+  image:
+    repository: vllm/vllm-openai
+    pullPolicy: IfNotPresent
+    tag: latest

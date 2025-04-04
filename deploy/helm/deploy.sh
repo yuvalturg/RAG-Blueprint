@@ -22,9 +22,13 @@ oc annotate secret pgvector -n $NAMESPACE meta.helm.sh/release-name=rag meta.hel
 
 # DOMAIN=$(kubectl get Ingress.config.openshift.io/cluster -o jsonpath='{.spec.domain}')
 
-helm upgrade --install rag rag-ui -n $NAMESPACE \
---set-json llama-serve.tolerations='[{"key":"g6e-gpu","effect":"NoSchedule","operator":"Exists"}]' \
---set-json safety-model.tolerations='[{"key":"odh-notebook","effect":"NoSchedule","operator":"Exists"}]'  
+if [[ -n $DEPLOY_CRC_CPU ]]; then
+	helm upgrade --install rag rag-ui -n $NAMESPACE --values rag-ui/values-crc-cpu.yaml
+else
+	helm upgrade --install rag rag-ui -n $NAMESPACE \
+		--set-json llama-serve.tolerations='[{"key":"g6e-gpu","effect":"NoSchedule","operator":"Exists"}]' \
+		--set-json safety-model.tolerations='[{"key":"odh-notebook","effect":"NoSchedule","operator":"Exists"}]'
+fi
 
 echo "Listing pods..."
 kubectl get pods -n $NAMESPACE
