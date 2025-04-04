@@ -25,10 +25,10 @@ Before deploying, make sure you have the following:
    cd deploy/helm
    ```
 
-3. Run the deployment script:
+3. Run the install command:
 
    ```bash
-   ./deploy.sh
+   make install
    ```
 
 4. When prompted, enter your **Hugging Face Token**.

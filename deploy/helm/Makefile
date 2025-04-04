@@ -8,6 +8,8 @@ POSTGRES_PASSWORD ?= rag_password
 POSTGRES_DBNAME ?= rag_blueprint
 RELEASE_NAME ?= rag
 CHART_PATH ?= rag-ui
+TOLERATION_LLM_SERVER ?= odh-notebook
+TOLERATION_SAFETY_SERVER ?= odh-notebook
 HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
 
 # Default target
@@ -21,10 +23,12 @@ help:
 	@echo "  wait          - Wait for all pods to be ready and verify deployment health"
 	@echo ""
 	@echo "Configuration options (set via environment variables or make arguments):"
-	@echo "  NAMESPACE     - Target namespace (default: llama-stack-rag)"
-	@echo "  RELEASE_NAME  - Helm release name (default: rag)"
-	@echo "  CHART_PATH    - Path to the Helm chart (default: rag-ui)"
-	@echo "  HF_TOKEN      - Hugging Face Token (will prompt if not provided)"
+	@echo "  NAMESPACE     			- Target namespace (default: llama-stack-rag)"
+	@echo "  RELEASE_NAME  			- Helm release name (default: rag)"
+	@echo "  CHART_PATH    			- Path to the Helm chart (default: rag-ui)"
+	@echo "  HF_TOKEN      			- Hugging Face Token (will prompt if not provided)"
+	@echo "  TOLERATION_LLM_SERVER			- Toleration for LLM Server (default: odh-notebook)"
+	@echo "  TOLERATION_SAFETY_SERVER		- Toleration for Safety Server (default: odh-notebook)"
 
 # Create namespace and deploy
 .PHONY: namespace
@@ -63,8 +67,8 @@ install: namespace secrets
 
 	@echo "Deploying Helm chart $(CHART_PATH) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) \
-	--set-json llama-serve.tolerations='[{"key":"g6e-gpu","effect":"NoSchedule","operator":"Exists"}]' \
-	--set-json safety-model.tolerations='[{"key":"odh-notebook","effect":"NoSchedule","operator":"Exists"}]'
+	--set-json llama-serve.tolerations='[{"key":"$(TOLERATION_LLM_SERVER)","effect":"NoSchedule","operator":"Exists"}]' \
+	--set-json safety-model.tolerations='[{"key":"$(TOLERATION_SAFETY_SERVER)","effect":"NoSchedule","operator":"Exists"}]'
 	
 	@$(MAKE) pg-vector
 	
@@ -132,7 +136,7 @@ status:
 	oc get secrets -n $(NAMESPACE) | grep huggingface-secret || true
 
 	@echo "Listing pvcs..."
-	oc get pvcs -n $(NAMESPACE) || true
+	oc get pvc -n $(NAMESPACE) || true
 
 # Wait for all pods to be ready
 .PHONY: wait
