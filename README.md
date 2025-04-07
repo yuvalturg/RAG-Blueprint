@@ -64,5 +64,11 @@ kubectl get routes -n llama-stack-rag
 
 You should see the running components, services, and exposed routes.
 
+## Resource cleanup
+
+```
+make unistall
+```
+
 LLama UI
 ![Llama UI](Llama-UI.png)
