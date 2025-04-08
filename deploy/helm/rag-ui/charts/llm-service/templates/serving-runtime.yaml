@@ -1,0 +1,51 @@
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: {{ .Values.servingRuntime.name }}
+  annotations:
+    openshift.io/display-name: {{ .Values.servingRuntime.name }}
+    opendatahub.io/recommended-accelerators: '{{ printf "[%q]" .Values.acceleratorProfile.identifier }}'
+    opendatahub.io/apiProtocol: REST
+    opendatahub.io/template-display-name: vLLM ServingRuntime for KServe
+    opendatahub.io/template-name: vllm-runtime
+  labels:
+    opendatahub.io/dashboard: "true"
+spec:
+  annotations:
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
+    serving.knative.dev/progress-deadline: {{ .Values.servingRuntime.knativeTimeout }}
+  containers:
+  - command:
+    - python3
+    - -m
+    - vllm.entrypoints.openai.api_server
+    args:
+    - --port
+    - "8080"
+    - --max-model-len
+    - "8192"
+    - --model
+    - /mnt/models
+    {{-  with .Values.servingRuntime.env }}
+    env:
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    image: {{ .Values.servingRuntimeImage }}
+    name: kserve-container
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+    {{- with .Values.servingRuntime.volumeMounts }}
+    volumeMounts:
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  multiModel: false
+  supportedModelFormats:
+  - autoSelect: true
+    name: vLLM
+  {{- with .Values.servingRuntime.volumes }}
+  volumes:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
