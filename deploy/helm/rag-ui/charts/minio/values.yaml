@@ -27,6 +27,7 @@ securityContext: {}
 service:
   type: ClusterIP
   port: 9090
+  apiPort: 9000
 
 command:
   - /bin/bash
