@@ -6,6 +6,8 @@ NAMESPACE ?= llama-stack-rag
 POSTGRES_USER ?= postgres
 POSTGRES_PASSWORD ?= rag_password
 POSTGRES_DBNAME ?= rag_blueprint
+MINIO_USER ?= minio_rag_user
+MINIO_PASSWORD ?= minio_rag_password
 RELEASE_NAME ?= rag
 CHART_PATH ?= rag-ui
 TOLERATION_LLM_SERVER ?= odh-notebook
@@ -37,7 +39,7 @@ namespace:
 	@echo "Creating namespace $(NAMESPACE)..."
 	oc new-project $(NAMESPACE) || oc project $(NAMESPACE)
 
-.PHONY: create-secrets
+.PHONY: secrets
 secrets:
 	@echo "Creating Hugging Face secret..."
 	oc create secret -n $(NAMESPACE) generic huggingface-secret --from-literal=HF_TOKEN="$(HF_TOKEN)" --dry-run=client -o yaml | oc apply -f -
@@ -48,11 +50,19 @@ secrets:
 		--from-literal=password="$(POSTGRES_PASSWORD)" \
 		--from-literal=host=pgvector \
 		--from-literal=port=5432 \
-		--from-literal=dbname="$(POSTGRES_DBNAME)"
+		--from-literal=dbname="$(POSTGRES_DBNAME)" || echo "PGVector secret not created"
+
+	@echo "Creating minio secret"
+	oc create secret -n $(NAMESPACE) generic minio \
+       --from-literal=username=$(MINIO_USER) \
+       --from-literal=password=$(MINIO_PASSWORD) \
+       --from-literal=host=minio \
+       --from-literal=port=9000 || echo "Minio secret not created"
 
 	@echo "Annotating secrets..."
 	oc annotate secret huggingface-secret -n $(NAMESPACE) meta.helm.sh/release-name=$(RELEASE_NAME) meta.helm.sh/release-namespace=$(NAMESPACE) --overwrite
 	oc annotate secret pgvector -n $(NAMESPACE) meta.helm.sh/release-name=rag meta.helm.sh/release-namespace=$(NAMESPACE)
+	oc annotate secret minio -n $(NAMESPACE) meta.helm.sh/release-name=rag meta.helm.sh/release-namespace=$(NAMESPACE)
 
 .PHONY: pg-vector
 pg-vector:
@@ -113,12 +123,15 @@ remove-secrets:
 	@echo "Removing pgvector secret"
 	oc delete secret -n $(NAMESPACE) pgvector || echo "Secret not found or already removed."
 
+	@echo "Removing minio secret"
+	oc delete secret -n $(NAMESPACE) minio || echo "Secret not found or already removed."
+
 .PHONY: remove-pvcs
 remove-pvcs:
 
-	@echo "Removing pgvector PVCs"
+	@echo "Removing pgvector and minio PVCs"
 	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^pg-data") 
-
+	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^minio-data")
 
 # Check deployment status
 .PHONY: status
