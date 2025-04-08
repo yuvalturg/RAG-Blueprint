@@ -99,6 +99,13 @@ tolerations: []
 
 affinity: {}
 
+llm-service:
+  env:
+    - name: INFERENCE_MODEL
+      value: meta-llama/Llama-3.2-1B-Instruct
+    - name:  SAFETY_MODEL
+      value: meta-llama/Llama-Guard-3-1B
+
 llama-stack:
   extraEnv:
     - name: INFERENCE_MODEL
