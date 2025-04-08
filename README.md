@@ -8,12 +8,21 @@ This guide helps you deploy the **LLaMA Stack RAG UI** on an OpenShift cluster u
 Before deploying, make sure you have the following:
 
 - Access to an **OpenShift** cluster with appropriate permissions.
+- NFD Operator and NVIDIA-GPU operator installed
 - Two GPU nodes, one for vLLM and the other for Safety Model(A10 nodes)
 - The label - you can have any label on the node and pass it as part of the parameter to the deploy script. Please refer `deploy.sh`.
 - Helm is installed
 - A valid **Hugging Face Token**.
 - Access to meta-llama/Llama-3.2-3B-Instruct model
 
+## Pre-deployment Steps
+In case you have a fresh cluster -
+1. Install NFD Operator from OperatorHub
+2. Create default instance(no change needed)
+3. Validate in the GPU nodes if you have required `10de` labels in place
+4. Install NVIDIA-GPU operator and create the ClusterPolicy(default)
+
+This will set your cluster to use the provided GPUs and you can move forward to deploying AI workloads.
 
 ## Deployment Steps
 
@@ -54,6 +63,12 @@ kubectl get routes -n llama-stack-rag
 ```
 
 You should see the running components, services, and exposed routes.
+
+## Resource cleanup
+
+```
+make unistall
+```
 
 LLama UI
 ![Llama UI](Llama-UI.png)
