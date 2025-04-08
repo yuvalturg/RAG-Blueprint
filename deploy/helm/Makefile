@@ -57,7 +57,7 @@ secrets:
        --from-literal=username=$(MINIO_USER) \
        --from-literal=password=$(MINIO_PASSWORD) \
        --from-literal=host=minio \
-       --from-literal=port=9090 || echo "Minio secret not created"
+       --from-literal=port=9000 || echo "Minio secret not created"
 
 	@echo "Annotating secrets..."
 	oc annotate secret huggingface-secret -n $(NAMESPACE) meta.helm.sh/release-name=$(RELEASE_NAME) meta.helm.sh/release-namespace=$(NAMESPACE) --overwrite
