@@ -9,11 +9,11 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: http
+      targetPort: {{ .Values.service.port }}
       protocol: TCP
       name: webui
     - port: {{ .Values.service.apiPort }}
-      targetPort: http
+      targetPort: {{ .Values.service.apiPort }}
       protocol: TCP
       name: api
   selector:
