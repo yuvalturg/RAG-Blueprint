@@ -5,63 +5,55 @@ metadata:
     opendatahub.io/accelerator-name: nvidia-gpu
     opendatahub.io/apiProtocol: REST
     opendatahub.io/recommended-accelerators: '["nvidia.com/gpu"]'
-    openshift.io/display-name: ibm-granite-instruct
-  name: ibm-granite-instruct
+    openshift.io/display-name: rag-inference-vllm
   labels:
-    opendatahub.io/dashboard: 'true'
+    opendatahub.io/dashboard: "true"
+  name: rag-inference-vllm
 spec:
   annotations:
     prometheus.io/path: /metrics
-    prometheus.io/port: '8080'
+    prometheus.io/port: "8080"
   containers:
-    - args:
-        - '--port=8080'
-        - '--model=/cache/models'
-        - '--distributed-executor-backend=mp'
-        - '--served-model-name=ibm-granite-instruct'
-        - '--max-model-len=4096'
-        - '--dtype=half'
-        - '--gpu-memory-utilization'
-        - '0.98'
-        - '--enforce-eager'
-      command:
-        - python
-        - '-m'
-        - vllm.entrypoints.openai.api_server
-      env:
-        - name: HF_HOME
-          value: /cache
-        - name: HF_TOKEN
-          valueFrom:
-            secretKeyRef:
-              key: hftoken
-              name: huggingface-secret
-        - name: MODEL_ID
-          valueFrom:
-            secretKeyRef:
-              key: modelId
-              name: huggingface-secret
-        - name: HF_HUB_OFFLINE
-          value: '0'
-      image: 'quay.io/modh/vllm@sha256:c86ff1e89c86bc9821b75d7f2bbc170b3c13e3ccf538bf543b1110f23e056316'
-      name: kserve-container
-      ports:
-        - containerPort: 8080
-          protocol: TCP
-      volumeMounts:
-        - mountPath: /dev/shm
-          name: shm
-        - mountPath: /cache/models
-          name: models
+  - args:
+    - --enable-auto-tool-choice
+    - --chat-template
+    - /workspace/vllm/examples/tool_chat_template_llama3.2_json.jinja
+    - --tool-call-parser
+    - llama3_json
+    - --port
+    - "8000"
+    - --max-model-len
+    - "8192"
+    - --model
+    - /mnt/models
+    command:
+    - python3
+    - -m
+    - vllm.entrypoints.openai.api_server
+    env:
+    - name: VLLM_CONFIG_ROOT
+      value: /vllm/config
+    - name: VLLM_CACHE_ROOT
+      value: /vllm/cache
+    image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
+    name: kserve-container
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: shm
+    - mountPath: /vllm
+      name: vllm-home
   multiModel: false
   supportedModelFormats:
-    - autoSelect: true
-      name: vLLM
+  - autoSelect: true
+    name: vLLM
   volumes:
-    - emptyDir:
-        medium: Memory
-        sizeLimit: 2Gi
-      name: shm
-    - name: models
-      persistentVolumeClaim:
-        claimName: model-pvc
+  - emptyDir:
+      medium: Memory
+      sizeLimit: 2Gi
+    name: shm
+  - emptyDir:
+      sizeLimit: 5Gi
+    name: vllm-home

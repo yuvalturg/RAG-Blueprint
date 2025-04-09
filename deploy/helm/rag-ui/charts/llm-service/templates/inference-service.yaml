@@ -1,14 +1,17 @@
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  annotations:
-    openshift.io/display-name: ibm-granite-instruct
-    serving.knative.openshift.io/enablePassthrough: 'true'
-    sidecar.istio.io/inject: 'true'
-    sidecar.istio.io/rewriteAppHTTPProbers: 'true'
-  name: ibm-granite-instruct
+    openshift.io/display-name: llamastack-vllm-inference
+    serving.knative.openshift.io/enablePassthrough: "true"
+    sidecar.istio.io/inject: "true"
+    sidecar.istio.io/rewriteAppHTTPProbers: "true"
+  creationTimestamp: "2025-04-04T10:41:40Z"
+  finalizers:
+  - inferenceservice.finalizers
+  generation: 8
   labels:
-    opendatahub.io/dashboard: 'true'
+    opendatahub.io/dashboard: "true"
+  name: llamastack-vllm-inference
 spec:
   predictor:
     maxReplicas: 1
@@ -16,19 +19,11 @@ spec:
     model:
       modelFormat:
         name: vLLM
-      name: ''
-      resources:
-        limits:
-          cpu: '8'
-          memory: 10Gi
-          nvidia.com/gpu: '1'
-        requests:
-          cpu: '2'
-          memory: 8Gi
-          nvidia.com/gpu: '1'
-      runtime: ibm-granite-instruct
-    restartPolicy: OnFailure
+      name: ""
+      resources: {}
+      runtime: vllm-custom-runtime
+      storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-1b-instruct
     tolerations:
-      - effect: NoSchedule
-        key: odh-notebook
-        operator: Exists
+    - effect: NoSchedule
+      key: odh-notebook
+      operator: Exists
