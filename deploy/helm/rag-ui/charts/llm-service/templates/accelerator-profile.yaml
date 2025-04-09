@@ -1,15 +1,15 @@
 apiVersion: dashboard.opendatahub.io/v1
 kind: AcceleratorProfile
 metadata:
-  name: nvidia-gpu
+  name: {{ .Values.acceleratorProfile.name }}
   namespace: redhat-ods-applications
   annotations:
     argocd.argoproj.io/sync-wave: "40"
 spec:
-  displayName: NVIDIA GPU
+  displayName: {{ .Values.acceleratorProfile.displayName }}
   enabled: true
-  identifier: nvidia.com/gpu
+  identifier: {{ .Values.acceleratorProfile.identifier }}
+  {{- with .Values.acceleratorProfile.tolerations }}
   tolerations:
-  - effect: NoSchedule
-    key: odh-notebook
-    operator: Exists
+    {{- toYaml . | nindent 2 }}
+  {{- end }}

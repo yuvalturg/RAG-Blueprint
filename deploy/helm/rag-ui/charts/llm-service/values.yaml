@@ -1,2 +1,27 @@
-hfmodel:
-  key: secret/data/hub/hfmodel
+acceleratorProfile:
+  name: nvidia-gpu
+  displayName: NVIDIA GPU
+  identifier: nvidia.com/gpu
+  tolerations:
+  - effect: NoSchedule
+    key: odh-notebook
+    operator: Exists
+
+servingRuntimes:
+#  - name: rag-safety-vllm
+#    image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
+#     vllmVolumeSize: 5Gi
+  - name: rag-inference-vllm
+    image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
+    vllmVolumeSize: 5Gi
+    extraArgs:
+    - --enable-auto-tool-choice
+    - --chat-template
+    - /workspace/vllm/examples/tool_chat_template_llama3.2_json.jinja
+    - --tool-call-parser
+    - llama3_json
+
+inferenceServices:
+  - name: rag-inference
+    servingRuntime: rag-inference-vllm
+    storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-1b-instruct
