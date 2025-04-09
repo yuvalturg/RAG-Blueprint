@@ -8,9 +8,9 @@ acceleratorProfile:
     operator: Exists
 
 servingRuntimes:
-#  - name: rag-safety-vllm
-#    image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
-#     vllmVolumeSize: 5Gi
+  - name: rag-safety-vllm
+    image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
+    vllmVolumeSize: 5Gi
   - name: rag-inference-vllm
     image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
     vllmVolumeSize: 5Gi
@@ -22,6 +22,9 @@ servingRuntimes:
     - llama3_json
 
 inferenceServices:
+  - name: rag-safety
+    servingRuntime: rag-safety-vllm
+    storageUri: oci://quay.io/yuvalturg/modelcars:llama-guard-3-1b
   - name: rag-inference
     servingRuntime: rag-inference-vllm
     storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-1b-instruct

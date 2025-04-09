@@ -1,5 +1,6 @@
 {{- $root := . }}
 {{- range $.Values.servingRuntimes }}
+---
 apiVersion: serving.kserve.io/v1alpha1
 kind: ServingRuntime
 metadata:
@@ -16,7 +17,11 @@ spec:
     prometheus.io/path: /metrics
     prometheus.io/port: "8080"
   containers:
-  - args:
+  - command:
+    - python3
+    - -m
+    - vllm.entrypoints.openai.api_server
+    args:
     - --port
     - "8000"
     - --max-model-len
@@ -26,10 +31,6 @@ spec:
     {{- with .extraArgs }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
-    command:
-    - python3
-    - -m
-    - vllm.entrypoints.openai.api_server
     env:
     - name: VLLM_CONFIG_ROOT
       value: /vllm/config
