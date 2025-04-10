@@ -10,20 +10,20 @@ acceleratorProfile:
 servingRuntime:
   name: vllm-serving-runtime
   env:
-    - name: VLLM_CONFIG_ROOT
-      value: /vllm/config
-    - name: VLLM_CACHE_ROOT
-      value: /vllm/cache
+  - name: VLLM_CONFIG_ROOT
+    value: /vllm/config
+  - name: VLLM_CACHE_ROOT
+    value: /vllm/cache
   volumeMounts:
-    - mountPath: /dev/shm
-      name: shm
-    - mountPath: /vllm
-      name: vllm-home
+  - mountPath: /dev/shm
+    name: shm
+  - mountPath: /vllm
+    name: vllm-home
   volumes:
-    - emptyDir:
-        medium: Memory
-        sizeLimit: 2Gi
-      name: shm
-    - emptyDir:
-        sizeLimit: 5Gi
-      name: vllm-home
+  - emptyDir:
+      medium: Memory
+      sizeLimit: 2Gi
+    name: shm
+  - emptyDir:
+      sizeLimit: 5Gi
+    name: vllm-home
