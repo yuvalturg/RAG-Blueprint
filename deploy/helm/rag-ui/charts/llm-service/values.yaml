@@ -7,24 +7,23 @@ acceleratorProfile:
     key: odh-notebook
     operator: Exists
 
-servingRuntimes:
-  - name: rag-safety-vllm
-    image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
-    vllmVolumeSize: 5Gi
-  - name: rag-inference-vllm
-    image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
-    vllmVolumeSize: 5Gi
-    extraArgs:
-    - --enable-auto-tool-choice
-    - --chat-template
-    - /workspace/vllm/examples/tool_chat_template_llama3.2_json.jinja
-    - --tool-call-parser
-    - llama3_json
-
-inferenceServices:
-  - name: rag-safety
-    servingRuntime: rag-safety-vllm
-    storageUri: oci://quay.io/yuvalturg/modelcars:llama-guard-3-1b
-  - name: rag-inference
-    servingRuntime: rag-inference-vllm
-    storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-1b-instruct
+servingRuntime:
+  name: vllm-serving-runtime
+  env:
+    - name: VLLM_CONFIG_ROOT
+      value: /vllm/config
+    - name: VLLM_CACHE_ROOT
+      value: /vllm/cache
+  volumeMounts:
+    - mountPath: /dev/shm
+      name: shm
+    - mountPath: /vllm
+      name: vllm-home
+  volumes:
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 2Gi
+      name: shm
+    - emptyDir:
+        sizeLimit: 5Gi
+      name: vllm-home

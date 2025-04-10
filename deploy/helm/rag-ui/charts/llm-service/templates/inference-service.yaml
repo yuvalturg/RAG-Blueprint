@@ -1,12 +1,12 @@
 {{- $root := . }}
-{{- range $.Values.inferenceServices }}
+{{- range $key, $model := $.Values.global.models }}
 ---
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: {{ .name }}
+  name: rag-{{ $key }}
   annotations:
-    openshift.io/display-name: {{ .name }}
+    openshift.io/display-name: rag-{{ $key }}
     serving.knative.openshift.io/enablePassthrough: "true"
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
@@ -21,8 +21,18 @@ spec:
         name: vLLM
       name: ""
       resources: {}
-      runtime: {{ .servingRuntime }}
+      runtime: {{ $root.Values.servingRuntime.name }}
       storageUri: {{ .storageUri }}
+      args:
+      - --served-model-name
+      - {{ $model.id }}
+      {{- with $model.args }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- with $model.env }}
+      env:
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
     {{- with $root.Values.acceleratorProfile.tolerations }}
     tolerations:
       {{- toYaml . | nindent 4 }}
