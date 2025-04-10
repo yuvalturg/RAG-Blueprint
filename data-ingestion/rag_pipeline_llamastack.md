@@ -1,6 +1,6 @@
 # Kubeflow Pipeline for PDF Processing and Vector Storage using LLaMA Stack Client
 
-This repository provides a Kubeflow pipeline that automates the process of fetching **PDF documents from MinIO**, extracting and chunking content, generating embeddings and storing them in a **PostgreSQL database with PGVector extension** using the `llama_stack_client` and `RAGDocument`.
+This repository provides a Kubeflow pipeline that automates the process of fetching **PDF documents from MinIO**, extracting and chunking content, generating embeddings and storing them in a **PGVector** using the `llama_stack_client` and `RAGDocument`.
 
 ---
 
