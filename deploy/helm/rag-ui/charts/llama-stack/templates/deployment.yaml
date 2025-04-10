@@ -42,6 +42,10 @@ spec:
             - name: {{ printf "%s_MODEL" (upper $key) }}
               value: {{ $model.id }}
             {{- end }}
+            - name: VLLM_URL
+              value: https://{{ .Values.global.models.inference.serviceName }}.{{ .Release.Namespace }}.svc.cluster.local/v1
+            - name: SAFETY_VLLM_URL
+              value: https://{{ .Values.global.models.safety.serviceName }}.{{ .Release.Namespace }}.svc.cluster.local/v1
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}

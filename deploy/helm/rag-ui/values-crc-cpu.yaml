@@ -71,6 +71,7 @@ global:
     inference:
       id: meta-llama/Llama-3.2-1B-Instruct
       storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-1b-instruct
+      serviceName: rag-inference
       args:
       - --enable-auto-tool-choice
       - --chat-template
@@ -80,6 +81,7 @@ global:
     safety:
       id: meta-llama/Llama-Guard-3-1B
       storageUri: oci://quay.io/yuvalturg/modelcars:llama-guard-3-1b
+      serviceName: rag-safety
 
 llm-service:
   servingRuntimeImage: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df

@@ -4,9 +4,9 @@
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: rag-{{ $key }}
+  name: {{ $model.serviceName }}
   annotations:
-    openshift.io/display-name: rag-{{ $key }}
+    openshift.io/display-name: {{ $model.serviceName }}
     serving.knative.openshift.io/enablePassthrough: "true"
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
