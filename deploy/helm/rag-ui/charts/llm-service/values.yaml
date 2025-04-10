@@ -10,10 +10,8 @@ acceleratorProfile:
 servingRuntime:
   name: vllm-serving-runtime
   env:
-  - name: VLLM_CONFIG_ROOT
-    value: /vllm/config
-  - name: VLLM_CACHE_ROOT
-    value: /vllm/cache
+  - name: HOME
+    value: /vllm
   volumeMounts:
   - mountPath: /dev/shm
     name: shm
