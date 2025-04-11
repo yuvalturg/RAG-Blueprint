@@ -2,10 +2,6 @@ acceleratorProfile:
   name: nvidia-gpu
   displayName: NVIDIA GPU
   identifier: nvidia.com/gpu
-  tolerations:
-  - effect: NoSchedule
-    key: odh-notebook
-    operator: Exists
 
 servingRuntime:
   name: vllm-serving-runtime

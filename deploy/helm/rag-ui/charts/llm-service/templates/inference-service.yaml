@@ -33,7 +33,7 @@ spec:
       env:
         {{- toYaml . | nindent 6 }}
       {{- end }}
-    {{- with $root.Values.acceleratorProfile.tolerations }}
+    {{- with $model.tolerations }}
     tolerations:
       {{- toYaml . | nindent 4 }}
     {{- end }}

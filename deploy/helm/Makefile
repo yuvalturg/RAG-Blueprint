@@ -78,7 +78,9 @@ install: namespace secrets
 	@echo "Deploying Helm chart $(CHART_PATH) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) \
 	--set-json llama-serve.tolerations='[{"key":"$(TOLERATION_LLM_SERVER)","effect":"NoSchedule","operator":"Exists"}]' \
-	--set-json safety-model.tolerations='[{"key":"$(TOLERATION_SAFETY_SERVER)","effect":"NoSchedule","operator":"Exists"}]'
+	--set-json safety-model.tolerations='[{"key":"$(TOLERATION_SAFETY_SERVER)","effect":"NoSchedule","operator":"Exists"}]' \
+	--set-json global.models.inference.tolerations='[{"key":"$(TOLERATION_LLM_SERVER)","effect":"NoSchedule","operator":"Exists"}]' \
+	--set-json global.models.safety.tolerations='[{"key":"$(TOLERATION_SAFETY_SERVER)","effect":"NoSchedule","operator":"Exists"}]'
 	
 	@$(MAKE) pg-vector
 	
