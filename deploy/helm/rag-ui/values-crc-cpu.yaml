@@ -85,3 +85,29 @@ global:
 
 llm-service:
   servingRuntimeImage: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
+
+
+## llama-serve and safety-model were replaced by llm-service, set replicaCount=0 ##
+llama-serve:
+  replicaCount: 0
+  extraArgs:
+    - --model
+    - meta-llama/Llama-3.2-1B-Instruct
+  tolerations: []
+  resources: null
+  image:
+    repository: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo
+    pullPolicy: IfNotPresent
+    tag: v0.8.1
+
+safety-model:
+  replicaCount: 0
+  extraArgs:
+    - --model
+    - meta-llama/Llama-Guard-3-1B
+  tolerations: []
+  resources: null
+  image:
+    repository: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo
+    pullPolicy: IfNotPresent
+    tag: v0.8.1
