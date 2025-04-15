@@ -92,6 +92,8 @@ global:
         - /vllm-workspace/examples/tool_chat_template_llama3.2_json.jinja
         - --tool-call-parser
         - llama3_json
+        - --max-model-len
+        - "30544"
       llamaStack:
         modelIdEnvVar: INFERENCE_MODEL
         modelUrlEnvVar: VLLM_URL
@@ -100,6 +102,9 @@ global:
       inferenceService:
         name: llama-guard
         storageUri: oci://quay.io/ecosystem-appeng/modelcars:llama-guard-3-8b
+        args:
+        - --max-model-len
+        - "14336"
       llamaStack:
         modelIdEnvVar: SAFETY_MODEL
         modelUrlEnvVar: SAFETY_VLLM_URL

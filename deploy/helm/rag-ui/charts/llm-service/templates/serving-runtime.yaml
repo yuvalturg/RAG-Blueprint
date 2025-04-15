@@ -24,8 +24,6 @@ spec:
     args:
     - --port
     - "8080"
-    - --max-model-len
-    - "8192"
     - --model
     - /mnt/models
     {{-  with .Values.servingRuntime.env }}
