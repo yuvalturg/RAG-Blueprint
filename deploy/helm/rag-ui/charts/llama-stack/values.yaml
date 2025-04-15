@@ -33,6 +33,9 @@ securityContext: {}
   # runAsNonRoot: true
   # runAsUser: 1000
 
+strategy:
+  type: Recreate
+
 service:
   type: ClusterIP
   port: 8321
@@ -101,8 +104,9 @@ volumes:
       defaultMode: 420
       name: run-config
     name: run-config-volume
-  - emptyDir: {}
-    name: llama-temp
+  - name: dot-llama
+    persistentVolumeClaim:
+      claimName: llama-stack-data
   - emptyDir: {}
     name: cache
 
@@ -116,7 +120,7 @@ volumeMounts:
   - mountPath: /app-config
     name: run-config-volume
   - mountPath: /.llama
-    name: llama-temp
+    name: dot-llama
   - mountPath: /.cache
     name: cache
 # - name: foo
