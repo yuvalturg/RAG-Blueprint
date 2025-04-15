@@ -1,8 +1,11 @@
 # Makefile for RAG Deployment
 # Replaces the original deploy.sh script with additional uninstall functionality
 
+ifeq ($(NAMESPACE),)
+  $(error NAMESPACE is not set)
+endif
+
 # Default values
-NAMESPACE ?= llama-stack-rag
 POSTGRES_USER ?= postgres
 POSTGRES_PASSWORD ?= rag_password
 POSTGRES_DBNAME ?= rag_blueprint
