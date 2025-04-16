@@ -86,6 +86,7 @@ global:
       inferenceService:
         name: llama-instruct
         storageUri: oci://quay.io/redhat-ai-services/modelcar-catalog:llama-3.2-1b-instruct
+        resources: {}
         args:
         - --enable-auto-tool-choice
         - --chat-template
@@ -102,6 +103,7 @@ global:
       inferenceService:
         name: llama-guard
         storageUri: oci://quay.io/ecosystem-appeng/modelcars:llama-guard-3-1b
+        resources: {}
         args:
         - --max-model-len
         - "14336"

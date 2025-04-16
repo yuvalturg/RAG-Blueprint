@@ -21,7 +21,19 @@ spec:
       modelFormat:
         name: vLLM
       name: ""
-      resources: {}
+      resources:
+      {{- if hasKey $model.inferenceService "resources" }}
+      {{- toYaml $model.inferenceService.resources | nindent 8 }}
+      {{- else }}
+        limits:
+          cpu: "2"
+          memory: 8Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "1"
+          memory: 4Gi
+          nvidia.com/gpu: "1"
+      {{- end }}
       runtime: {{ $root.Values.servingRuntime.name }}
       storageUri: {{ $model.inferenceService.storageUri }}
       args:
