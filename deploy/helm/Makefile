@@ -43,7 +43,7 @@ help:
 namespace:
 
 	@echo "Creating namespace $(NAMESPACE)..."
-	oc new-project $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false || oc project $(NAMESPACE)
+	oc create namespace $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false || oc project $(NAMESPACE) ||:
 
 .PHONY: secrets
 secrets:
