@@ -1,8 +1,11 @@
 # Makefile for RAG Deployment
 # Replaces the original deploy.sh script with additional uninstall functionality
 
+ifeq ($(NAMESPACE),)
+  $(error NAMESPACE is not set)
+endif
+
 # Default values
-NAMESPACE ?= llama-stack-rag
 POSTGRES_USER ?= postgres
 POSTGRES_PASSWORD ?= rag_password
 POSTGRES_DBNAME ?= rag_blueprint
@@ -40,7 +43,7 @@ help:
 namespace:
 
 	@echo "Creating namespace $(NAMESPACE)..."
-	oc new-project $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false || oc project $(NAMESPACE)
+	oc create namespace $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false || oc project $(NAMESPACE) ||:
 
 .PHONY: secrets
 secrets:

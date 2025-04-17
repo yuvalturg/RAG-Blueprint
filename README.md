@@ -45,7 +45,7 @@ This will set your cluster to use the provided GPUs and you can move forward to 
 3. Run the install command:
 
    ```bash
-   make install
+   make install NAMESPACE=llama-stack-rag
    ```
 
 4. When prompted, enter your **Hugging Face Token**.
@@ -75,7 +75,7 @@ You should see the running components, services, and exposed routes.
 ## Resource cleanup
 
 ```
-make unistall
+make uninstall NAMESPACE=llama-stack-rag
 ```
 
 LLama UI
