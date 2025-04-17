@@ -1,0 +1,12 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  name: run-kfp-from-yaml
+  namespace: {{ .Values.namespace }}
+spec:
+  pipelineRef:
+    name: trigger-kfp-pipeline
+  workspaces:
+    - name: pipeline-yaml
+      persistentVolumeClaim:
+        claimName: {{ .Values.pipeline.pvc }}

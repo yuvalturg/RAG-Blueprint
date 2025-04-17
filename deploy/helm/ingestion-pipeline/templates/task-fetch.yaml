@@ -1,0 +1,31 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: run-kfp-pipeline
+  namespace: {{ .Values.namespace }}
+spec:
+  steps:
+    - name: run-kfp
+      image: gcr.io/ml-pipeline/kfp-cli:latest
+      script: |
+        #!/bin/bash
+        echo "Uploading pipeline..."
+        PIPELINE_ID=$(kfp pipeline upload \
+          --pipeline-file /mnt/config/pipeline.yaml \
+          --pipeline-name {{ .Values.pipeline.name }} | grep -oP 'ID: \K.*')
+
+        echo "Creating experiment..."
+        kfp experiment create --name {{ .Values.pipeline.experiment }} || echo "Experiment exists."
+
+        echo "Creating run..."
+        kfp run submit \
+          --pipeline-id $PIPELINE_ID \
+          --experiment-name {{ .Values.pipeline.experiment }} \
+          --run-name {{ .Values.pipeline.runNamePrefix }}-$(date +%s)
+      volumeMounts:
+        - name: pipeline-yaml
+          mountPath: /mnt/config
+  volumes:
+    - name: pipeline-yaml
+      configMap:
+        name: pipeline-yaml-cm

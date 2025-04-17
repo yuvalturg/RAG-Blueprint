@@ -1,0 +1,7 @@
+namespace: ai-example-training
+pipeline:
+  name: auto-rag-ingest
+  experiment: rag-ingest-exp
+  pvc: ingestion-pvc
+  pipelineYaml: pipeline.yaml
+  runNamePrefix: run

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: rag-ingestion
+version: 0.1.0
+description: Helm chart for uploading and triggering a Kubeflow pipeline using Tekton

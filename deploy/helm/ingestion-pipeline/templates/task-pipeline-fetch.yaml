@@ -1,0 +1,15 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: trigger-kfp-pipeline
+  namespace: {{ .Values.namespace }}
+spec:
+  workspaces:
+    - name: pipeline-yaml
+  tasks:
+    - name: run-kfp-pipeline
+      taskRef:
+        name: run-kfp-pipeline
+      workspaces:
+        - name: pipeline-yaml
+          workspace: pipeline-yaml
