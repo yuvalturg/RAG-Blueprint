@@ -5,6 +5,8 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: {{ $key }}
+  annotations:
+    "helm.sh/resource-policy": keep
 spec:
   accessModes:
     - ReadWriteOnce
@@ -22,6 +24,7 @@ metadata:
     serving.knative.openshift.io/enablePassthrough: "true"
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
+    storage.kserve.io/readonly: "false"
   labels:
     opendatahub.io/dashboard: "true"
     networking.knative.dev/visibility: "cluster-local"
