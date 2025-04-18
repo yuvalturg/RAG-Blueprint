@@ -5,7 +5,7 @@ metadata:
   name: {{ .Values.servingRuntime.name }}
   annotations:
     openshift.io/display-name: {{ .Values.servingRuntime.name }}
-    opendatahub.io/recommended-accelerators: '{{ printf "[%q]" .Values.acceleratorProfile.identifier }}'
+#    opendatahub.io/recommended-accelerators: "{{ .Values.servingRuntime.recommendedAccelerators }}"
     opendatahub.io/apiProtocol: REST
     opendatahub.io/template-display-name: vLLM ServingRuntime for KServe
     opendatahub.io/template-name: vllm-runtime
@@ -25,12 +25,12 @@ spec:
     - --port
     - "8080"
     - --model
-    - /mnt/models
+    - /cache/models
     {{-  with .Values.servingRuntime.env }}
     env:
       {{- toYaml . | nindent 4 }}
     {{- end }}
-    image: {{ .Values.servingRuntimeImage }}
+    image: {{ .Values.servingRuntime.image }}
     name: kserve-container
     ports:
     - containerPort: 8080

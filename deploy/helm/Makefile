@@ -84,6 +84,14 @@ install-mcp-servers: namespace
 	@echo "Deploying Helm chart $(MCP_SERVERS_CHART_PATH) as release $(MCP_SERVERS_RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(MCP_SERVERS_RELEASE_NAME) $(MCP_SERVERS_CHART_PATH) -n $(NAMESPACE) 
 
+.PHONY: install-models
+install-models: namespace
+	@echo "Deploying models"
+	helm upgrade --install llm-service ./rag-ui/charts/llm-service/ --values=rag-ui/values-crc-cpu.yaml -n $(NAMESPACE)
+	@echo "Waiting for deployment to be ready..."
+	@$(MAKE) wait
+
+
 .PHONY: install
 install: namespace secrets
 
