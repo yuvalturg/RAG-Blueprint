@@ -6,23 +6,28 @@ servingRuntime:
   env:
   - name: HOME
     value: /vllm
+  - name: HF_TOKEN
+    valueFrom:
+      secretKeyRef:
+        key: HF_TOKEN
+        name: huggingface-secret
   volumeMounts:
-  - mountPath: /dev/shm
-    name: shm
-  - mountPath: /vllm
-    name: vllm-home
+  - name: shm
+    mountPath: /dev/shm
+  - name: vllm-home
+    mountPath: /vllm
   volumes:
-  - emptyDir:
+  - name: shm
+    emptyDir:
       medium: Memory
       sizeLimit: 2Gi
-    name: shm
-  - emptyDir:
+  - name: vllm-home
+    emptyDir:
       sizeLimit: 5Gi
-    name: vllm-home
 
 models:
-  llama-3-2-3b-instruct:
-    id: meta-llama/Llama-3.2-3B-Instruct
+  llama-3-2-1b-instruct:
+    id: meta-llama/Llama-3.2-1B-Instruct
     resources: {}
     args:
     - --enable-auto-tool-choice
@@ -32,6 +37,7 @@ models:
     - llama3_json
     - --max-model-len
     - "30544"
+
 #  llama-guard-3-8b:
 #    id: meta-llama/Llama-Guard-3-8B
 #    resources: {}

@@ -1,6 +1,18 @@
 {{- $root := . }}
 {{- range $key, $model := .Values.models }}
 ---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: {{ $key }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  volumeMode: Filesystem
+---
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
@@ -35,7 +47,10 @@ spec:
           nvidia.com/gpu: "1"
       {{- end }}
       runtime: {{ $root.Values.servingRuntime.name }}
+      storageUri: pvc://{{ $key }}/
       args:
+      - --model
+      - {{ $model.id }}
       - --served-model-name
       - {{ $model.id }}
       {{- with $model.args }}
