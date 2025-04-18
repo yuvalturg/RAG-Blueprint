@@ -2,7 +2,6 @@ apiVersion: kubeflow.org/v1
 kind: Notebook
 metadata:
   name: rag-pipeline-notebook
-  namespace: {{ .Values.namespace }}
   annotations:
     notebooks.opendatahub.io/inject-oauth: "true"
     opendatahub.io/image-display-name: Standard Data Science

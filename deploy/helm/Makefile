@@ -140,6 +140,12 @@ uninstall-mcp-servers:
 	@echo "Uninstalling Helm release $(MCP_SERVERS_RELEASE_NAME) from namespace $(NAMESPACE)..."
 	helm uninstall $(MCP_SERVERS_RELEASE_NAME) -n $(NAMESPACE) || echo "MCP servers are not installed or already removed."
 
+.PHONY: uninstall-ingestion-pipeline
+uninstall-ingestion-pipeline:
+
+	@echo "Uninstalling Helm release $(INGESTION_PIPELINE_RELEASE_NAME) from namespace $(NAMESPACE)..."
+	helm uninstall $(INGESTION_PIPELINE_RELEASE_NAME) -n $(NAMESPACE) || echo "MCP servers are not installed or already removed."
+
 .PHONY: uninstall-helm-release
 uninstall-helm-release:
 
