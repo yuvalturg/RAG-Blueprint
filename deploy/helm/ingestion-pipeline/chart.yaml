@@ -1,0 +1,4 @@
+apiVersion: v2
+name: fetch-minio-store-pipeline
+version: 0.1.0
+description: Deploys a KFP pipeline YAML and required secrets to OpenShift AI

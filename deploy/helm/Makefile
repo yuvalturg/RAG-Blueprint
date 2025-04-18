@@ -17,7 +17,9 @@ TOLERATION_LLM_SERVER ?= odh-notebook
 TOLERATION_SAFETY_SERVER ?= odh-notebook
 HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
 MCP_SERVERS_CHART_PATH ?= mcp-servers
+INGESTION_PIPELINE_CHART_PATH ?= ingestion-pipeline
 MCP_SERVERS_RELEASE_NAME ?= mcp-servers
+INGESTION_PIPELINE_RELEASE_NAME ?= ingestion-pipeline
 
 
 # Default target
@@ -84,6 +86,12 @@ install-mcp-servers: namespace
 	@echo "Deploying Helm chart $(MCP_SERVERS_CHART_PATH) as release $(MCP_SERVERS_RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(MCP_SERVERS_RELEASE_NAME) $(MCP_SERVERS_CHART_PATH) -n $(NAMESPACE) 
 
+.PHONY: install-ingestion-pipeline
+install-ingestion-pipeline: namespace
+	
+	@echo "Deploying Helm chart $(INGESTION_PIPELINE_CHART_PATH) as release $(INGESTION_PIPELINE_RELEASE_NAME) in namespace $(NAMESPACE)..."
+	helm install ingestion-pipeline $(INGESTION_PIPELINE_CHART_PATH) -n $(NAMESPACE) 
+
 .PHONY: install
 install: namespace secrets
 
@@ -131,6 +139,12 @@ uninstall-mcp-servers:
 
 	@echo "Uninstalling Helm release $(MCP_SERVERS_RELEASE_NAME) from namespace $(NAMESPACE)..."
 	helm uninstall $(MCP_SERVERS_RELEASE_NAME) -n $(NAMESPACE) || echo "MCP servers are not installed or already removed."
+
+.PHONY: uninstall-ingestion-pipeline
+uninstall-ingestion-pipeline:
+
+	@echo "Uninstalling Helm release $(INGESTION_PIPELINE_RELEASE_NAME) from namespace $(NAMESPACE)..."
+	helm uninstall $(INGESTION_PIPELINE_RELEASE_NAME) -n $(NAMESPACE) || echo "MCP servers are not installed or already removed."
 
 .PHONY: uninstall-helm-release
 uninstall-helm-release:
