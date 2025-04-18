@@ -1,0 +1,49 @@
+servingRuntime:
+  name: vllm-serving-runtime
+  knativeTimeout: 60m
+  image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo@sha256:6b0d6af534a3c2a24fbcbd0e5e919f9f215be73fdf799a7bbd324178956cb7df
+  env:
+  - name: HOME
+    value: /vllm
+  - name: HF_TOKEN
+    valueFrom:
+      secretKeyRef:
+        key: HF_TOKEN
+        name: huggingface-secret
+  volumeMounts:
+  - name: shm
+    mountPath: /dev/shm
+  - name: vllm-home
+    mountPath: /vllm
+  volumes:
+  - name: shm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 2Gi
+  - name: vllm-home
+    emptyDir:
+      sizeLimit: 5Gi
+
+models:
+  llama-3-2-1b-instruct:
+    id: meta-llama/Llama-3.2-1B-Instruct
+    enabled: true
+    resources: {}
+    storageSize: 50Gi
+    args:
+    - --enable-auto-tool-choice
+    - --chat-template
+    - /workspace/vllm/examples/tool_chat_template_llama3.2_json.jinja
+    - --tool-call-parser
+    - llama3_json
+    - --max-model-len
+    - "30544"
+
+  llama-guard-3-1b:
+    id: meta-llama/Llama-Guard-3-1B
+    enabled: true
+    resources: {}
+    storageSize: 50Gi
+    args:
+    - --max-model-len
+    - "14336"

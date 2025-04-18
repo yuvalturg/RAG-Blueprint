@@ -1,27 +1,18 @@
 # LLaMA Stack RAG Deployment
 
-This guide helps you deploy the **LLaMA Stack RAG UI** on an OpenShift cluster using Helm.
-
+This guide helps you deploy the **LLaMA Stack RAG UI** on an OpenShift AI cluster using Helm.
 
 ## Prerequisites
 
 Before deploying, make sure you have the following:
 
-- Access to an **OpenShift** cluster with appropriate permissions.
+- Access to an **OpenShift AI** cluster with appropriate permissions.
 - NFD Operator and NVIDIA-GPU operator installed
 - Two GPU nodes, one for vLLM and the other for Safety Model(A10 nodes)
-- The label - you can have any label on the node and pass it as part of the parameter to the deploy script. Please refer `deploy.sh`.
+- The label - you can have any label on the node and pass it as part of the parameter to the deploy script.
 - Helm is installed
 - A valid **Hugging Face Token**.
 - Access to meta-llama/Llama-3.2-3B-Instruct model
-
-## Modelcars
-We deploy models using modelcars.  In order to build modelcars for specific models, we may use modelcars/Containerfile as follows:
-
-```bash
-podman build modelcars --build-arg=HF_TOKEN=${HF_TOKEN} --build-arg=MODEL_ID=meta-llama/Llama-3.2-3B-Instruct -t quay.io/username/modelcars:llama-3.2-3b-instruct
-podman push quay.io/username/modelcars:llama-3.2-3b-instruct
-```
 
 ## Pre-deployment Steps
 In case you have a fresh cluster -
@@ -156,6 +147,36 @@ rag_blueprint=# SELECT COUNT(*) FROM vector_store_test;
 ```
 make uninstall NAMESPACE=llama-stack-rag
 ```
+
+
+## Other Installation Options
+You can decouple the deployment of the models and the RAG application by configuring the RAG app to use existing model deployments. This allows multiple users to share the same model resources.
+
+To do this, follow these steps:
+
+1. **Deploy the models (if not already deployed)**
+
+   If needed, deploy the supported and enabled models as defined in `llm-service/values-gpu.yaml`:
+   ```bash
+   make install-models NAMESPACE=llm-service
+   ```
+
+2. **Configure the RAG app**
+
+   Edit `rag-ui/values-gpu.yaml` and update the model URLs from `auto` to the endpoints of the existing vLLM services. To find the model service URL, you can use the following command:
+
+   ```bash
+   oc get inferenceservice <inference-service-name> -ojsonpath='{.status.address.url}'
+   ```
+   Replace \<inference-service-name\> with the name of the deployed inference service (e.g., llama-3-2-3b-instruct).
+
+
+3. **Deploy the RAG application**
+
+   ```bash
+   make install-rag NAMESPACE=llama-stack-rag
+   ```
+
 
 LLama UI
 ![Llama UI](Llama-UI.png)

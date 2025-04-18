@@ -17,23 +17,27 @@ TOLERATION_LLM_SERVER ?= odh-notebook
 TOLERATION_SAFETY_SERVER ?= odh-notebook
 HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
 MCP_SERVERS_CHART_PATH ?= mcp-servers
-INGESTION_PIPELINE_CHART_PATH ?= ingestion-pipeline
 MCP_SERVERS_RELEASE_NAME ?= mcp-servers
+INGESTION_PIPELINE_CHART_PATH ?= ingestion-pipeline
 INGESTION_PIPELINE_RELEASE_NAME ?= ingestion-pipeline
+LLM_SERVICE_CHART_PATH ?= llm-service
+LLM_SERVICE_RELEASE_NAME ?= llm-service
 
 
 # Default target
 .PHONY: help
 help:
 	@echo "Available targets:"
-	@echo "  install       - Install the RAG deployment (creates namespace, secrets, and deploys Helm chart)"
-	@echo "  install-crc   - Install the RAG deployment on CRC no GPU (creates namespace, secrets, and deploys Helm chart)"
-	@echo "  uninstall     - Uninstall the RAG deployment and clean up resources"
-	@echo "  status        - Check status of the deployment"
-	@echo "  wait          - Wait for all pods to be ready and verify deployment health"
+	@echo "  install        - Install the RAG deployment + models (creates namespace, secrets, and deploys Helm chart)"
+	@echo "  install-crc    - Install the RAG deployment + models on CRC (creates namespace, secrets, and deploys Helm chart)"
+	@echo "  install-models - Install models (creates namespace, secrets, and deploys Helm chart)"
+	@echo "  install-rag    - Install RAG deployment (creates namespace, secrets, and deploys Helm chart)"
+	@echo "  uninstall      - Uninstall the RAG deployment and clean up resources"
+	@echo "  status         - Check status of the deployment"
+	@echo "  wait           - Wait for all pods to be ready and verify deployment health"
 	@echo ""
 	@echo "Configuration options (set via environment variables or make arguments):"
-	@echo "  NAMESPACE     			- Target namespace (default: llama-stack-rag)"
+	@echo "  NAMESPACE     			- Target namespace (required)"
 	@echo "  RELEASE_NAME  			- Helm release name (default: rag)"
 	@echo "  CHART_PATH    			- Path to the Helm chart (default: rag-ui)"
 	@echo "  HF_TOKEN      			- Hugging Face Token (will prompt if not provided)"
@@ -84,27 +88,47 @@ pg-vector:
 install-mcp-servers: namespace
 	
 	@echo "Deploying Helm chart $(MCP_SERVERS_CHART_PATH) as release $(MCP_SERVERS_RELEASE_NAME) in namespace $(NAMESPACE)..."
-	helm upgrade --install $(MCP_SERVERS_RELEASE_NAME) $(MCP_SERVERS_CHART_PATH) -n $(NAMESPACE) 
+	helm upgrade --install $(MCP_SERVERS_RELEASE_NAME) $(MCP_SERVERS_CHART_PATH) -n $(NAMESPACE)
 
 .PHONY: install-ingestion-pipeline
 install-ingestion-pipeline: namespace
 	
 	@echo "Deploying Helm chart $(INGESTION_PIPELINE_CHART_PATH) as release $(INGESTION_PIPELINE_RELEASE_NAME) in namespace $(NAMESPACE)..."
-	helm install ingestion-pipeline $(INGESTION_PIPELINE_CHART_PATH) -n $(NAMESPACE) 
+	helm install ingestion-pipeline $(INGESTION_PIPELINE_CHART_PATH) -n $(NAMESPACE)
+
+.PHONY: install-models
+install-models: namespace
+
+	@echo "Deploying Helm chart $(LLM_SERVICE_CHART_PATH) as release $(LLM_SERVICE_RELEASE_NAME) in namespace $(NAMESPACE)..."
+	helm upgrade --install $(LLM_SERVICE_RELEASE_NAME) $(LLM_SERVICE_CHART_PATH) -n $(NAMESPACE) -f $(LLM_SERVICE_CHART_PATH)/values-gpu.yaml \
+	--set-json models.llama-3-2-3b-instruct.tolerations='[{"key":"$(TOLERATION_LLM_SERVER)","effect":"NoSchedule","operator":"Exists"}]' \
+	--set-json models.llama-guard-3-8b.tolerations='[{"key":"$(TOLERATION_SAFETY_SERVER)","effect":"NoSchedule","operator":"Exists"}]'
+
+	@echo "Waiting for models to be ready..."
+	@$(MAKE) wait
+
+.PHONY: install-models-crc
+install-models-crc: namespace
+
+	@echo "Deploying Helm chart $(LLM_SERVICE_CHART_PATH) as release $(LLM_SERVICE_RELEASE_NAME) in namespace $(NAMESPACE)..."
+	helm upgrade --install $(LLM_SERVICE_RELEASE_NAME) $(LLM_SERVICE_CHART_PATH) -n $(NAMESPACE) -f $(LLM_SERVICE_CHART_PATH)/values-crc.yaml
+	@echo "Waiting for models to be ready..."
+	@$(MAKE) wait
+
+.PHONY: install-rag
+install-rag: namespace secrets
+
+	@echo "Deploying Helm chart $(CHART_PATH) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
+	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) -f $(CHART_PATH)/values-gpu.yaml
+
+	@$(MAKE) pg-vector
 
 .PHONY: install
 install: namespace secrets
 
+	@$(MAKE) install-models
 	@$(MAKE) install-mcp-servers
-
-	@echo "Deploying Helm chart $(CHART_PATH) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
-	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) \
-	--set-json llama-serve.tolerations='[{"key":"$(TOLERATION_LLM_SERVER)","effect":"NoSchedule","operator":"Exists"}]' \
-	--set-json safety-model.tolerations='[{"key":"$(TOLERATION_SAFETY_SERVER)","effect":"NoSchedule","operator":"Exists"}]' \
-	--set-json global.models.llama-instruct.inferenceService.tolerations='[{"key":"$(TOLERATION_LLM_SERVER)","effect":"NoSchedule","operator":"Exists"}]' \
-	--set-json global.models.llama-guard.inferenceService.tolerations='[{"key":"$(TOLERATION_SAFETY_SERVER)","effect":"NoSchedule","operator":"Exists"}]'
-	
-	@$(MAKE) pg-vector
+	@$(MAKE) install-rag
 	
 	@$(MAKE) status
 	@$(MAKE) install-ingestion-pipeline
@@ -119,9 +143,10 @@ install: namespace secrets
 install-crc: namespace secrets
 
 	@$(MAKE) install-mcp-servers
+	@$(MAKE) install-models-crc
 
 	@echo "Deploying Helm chart $(CHART_PATH) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
-	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) --values rag-ui/values-crc-cpu.yaml
+	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) -f $(CHART_PATH)/values-crc.yaml
 	
 	@$(MAKE) pg-vector
 
@@ -133,13 +158,19 @@ install-crc: namespace secrets
 
 # Uninstall the deployment and clean up
 .PHONY: uninstall
-uninstall: uninstall-helm-release uninstall-mcp-servers remove-secrets remove-pvcs install-ingestion-pipeline
+uninstall: uninstall-helm-release uninstall-mcp-servers uninstall-llm-service uninstall-ingestion-pipeline remove-secrets remove-pvcs
 
 	@echo "Checking for any remaining resources in namespace $(NAMESPACE)..."
 	@echo "If you want to completely remove the namespace, run: oc delete project $(NAMESPACE)"
 	
 	@echo "Remaining resources in namespace $(NAMESPACE):"
 	@$(MAKE) status
+
+.PHONY: uninstall-llm-service
+uninstall-llm-service:
+
+	@echo "Uninstalling Helm release $(LLM_SERVICE_RELEASE_NAME) from namespace $(NAMESPACE)..."
+	helm uninstall $(LLM_SERVICE_RELEASE_NAME) -n $(NAMESPACE) || echo "LLM service is not installed or already removed."
 
 .PHONY: uninstall-mcp-servers
 uninstall-mcp-servers:
@@ -178,7 +209,7 @@ remove-secrets:
 remove-pvcs:
 
 	@echo "Removing pgvector and minio PVCs"
-	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^pg-data") 
+	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^pg-data")
 	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^minio-data")
 	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^llama-stack-data")
 
