@@ -1,8 +1,9 @@
+# create-pvc.yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ .Values.pipeline.pvc }}
-  namespace: {{ .Values.namespace }}
+  name: pipeline-vol
+  namespace: llama-stack-rag-2
 spec:
   accessModes:
     - ReadWriteOnce

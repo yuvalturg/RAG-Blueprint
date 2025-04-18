@@ -1,4 +1,4 @@
 apiVersion: v2
-name: rag-ingestion
+name: fetch-minio-store-pipeline
 version: 0.1.0
-description: Helm chart for uploading and triggering a Kubeflow pipeline using Tekton
+description: Deploys a KFP pipeline YAML and required secrets to OpenShift AI
