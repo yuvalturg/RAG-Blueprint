@@ -36,7 +36,7 @@ This will:
 
 ---
 
-## 🧑Run the Ingestion Pipeline
+## Run the Ingestion Pipeline
 
 1. **Open OpenShift AI Workbench**  
    Navigate to **Workbench** and open the notebook named `rag-pipeline-notebook`.
