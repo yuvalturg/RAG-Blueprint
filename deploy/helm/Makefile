@@ -108,9 +108,12 @@ install: namespace secrets
 	
 	@$(MAKE) status
 	@$(MAKE) install-ingestion-pipeline
+
 	oc exec minio-0 -- bash -c "mc alias set local http://localhost:9000 minio_rag_user minio_rag_password && mc mb local/llama"
+
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
+	
 
 .PHONY: install-crc
 install-crc: namespace secrets
