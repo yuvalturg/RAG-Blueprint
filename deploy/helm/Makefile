@@ -108,6 +108,9 @@ install: namespace secrets
 	
 	@$(MAKE) status
 	@$(MAKE) install-ingestion-pipeline
+
+	oc exec minio-0 -- bash -c "mc alias set local http://localhost:9000 minio_rag_user minio_rag_password && mc mb local/llama"
+
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
 	
@@ -126,6 +129,7 @@ install-crc: namespace secrets
 	@$(MAKE) install-ingestion-pipeline
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
+	oc exec minio-0 -- bash -c "mc alias set local http://localhost:9000 minio_rag_user minio_rag_password && mc mb local/llama"
 
 # Uninstall the deployment and clean up
 .PHONY: uninstall
@@ -166,6 +170,9 @@ remove-secrets:
 
 	@echo "Removing minio secret"
 	oc delete secret -n $(NAMESPACE) minio || echo "Secret not found or already removed."
+
+	@echo "Removing pipeline secret"
+	oc delete secret -n $(NAMESPACE) rag-pipeline-secrets || echo "Secret not found or already removed."
 
 .PHONY: remove-pvcs
 remove-pvcs:
