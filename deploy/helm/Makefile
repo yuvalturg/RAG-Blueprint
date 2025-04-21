@@ -107,6 +107,8 @@ install: namespace secrets
 	@$(MAKE) pg-vector
 	
 	@$(MAKE) status
+	@$(MAKE) install-ingestion-pipeline
+	oc exec minio-0 -- bash -c "mc alias set local http://localhost:9000 minio_rag_user minio_rag_password && mc mb local/llama"
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
 
@@ -121,12 +123,14 @@ install-crc: namespace secrets
 	@$(MAKE) pg-vector
 
 	@$(MAKE) status
+	@$(MAKE) install-ingestion-pipeline
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
+	oc exec minio-0 -- bash -c "mc alias set local http://localhost:9000 minio_rag_user minio_rag_password && mc mb local/llama"
 
 # Uninstall the deployment and clean up
 .PHONY: uninstall
-uninstall: uninstall-helm-release uninstall-mcp-servers remove-secrets remove-pvcs
+uninstall: uninstall-helm-release uninstall-mcp-servers remove-secrets remove-pvcs install-ingestion-pipeline
 
 	@echo "Checking for any remaining resources in namespace $(NAMESPACE)..."
 	@echo "If you want to completely remove the namespace, run: oc delete project $(NAMESPACE)"
@@ -144,7 +148,7 @@ uninstall-mcp-servers:
 uninstall-ingestion-pipeline:
 
 	@echo "Uninstalling Helm release $(INGESTION_PIPELINE_RELEASE_NAME) from namespace $(NAMESPACE)..."
-	helm uninstall $(INGESTION_PIPELINE_RELEASE_NAME) -n $(NAMESPACE) || echo "MCP servers are not installed or already removed."
+	helm uninstall $(INGESTION_PIPELINE_RELEASE_NAME) -n $(NAMESPACE) || echo "Pipelines are not installed or already removed."
 
 .PHONY: uninstall-helm-release
 uninstall-helm-release:
@@ -163,6 +167,9 @@ remove-secrets:
 
 	@echo "Removing minio secret"
 	oc delete secret -n $(NAMESPACE) minio || echo "Secret not found or already removed."
+
+	@echo "Removing pipeline secret"
+	oc delete secret -n $(NAMESPACE) rag-pipeline-secrets || echo "Secret not found or already removed."
 
 .PHONY: remove-pvcs
 remove-pvcs:
