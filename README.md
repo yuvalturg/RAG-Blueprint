@@ -37,10 +37,6 @@ This will set your cluster to use the provided GPUs and you can move forward to 
 
 1. Prior to deploying, ensure that you have access to the meta-llama/Llama-3.2-3B-Instruct model. If not, you can visit this meta and get access - https://www.llama.com/llama-downloads/
 
-Also, make sure you have your Kubeflow Pipelines configured with your object storage(minIO, S3) - 
-https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.8/html/working_on_data_science_projects/working-with-data-science-pipelines_ds-pipelines#configuring-a-pipeline-server_ds-pipelines
-
-
 2. Once everything's set, navigate to the Helm deployment directory:
 
    ```bash
@@ -88,7 +84,10 @@ Navigate to RHOAI dashboard and verify the following -
 
 ![Notebook](jupyter-nb.png)
 
-3. Before running that make sure you have your pipelines configured with your object storage.
+3. Before running that make sure you have your Kubeflow Pipelines configured with your object storage. 
+   Reference link(configuration) - https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.8/html/working_on_data_science_projects/working-with-data-science-pipelines_ds-pipelines#configuring-a-pipeline-server_ds-pipelines
+
+  For access and secret keys --
   - Navigate to `minio-webui`
   - Login with credentials
   - Create access and secret key in minIO 
