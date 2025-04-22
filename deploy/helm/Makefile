@@ -139,7 +139,7 @@ install: install-gpu
 
 # Uninstall the deployment and clean up
 .PHONY: uninstall
-uninstall: uninstall-helm-release uninstall-mcp-servers remove-secrets remove-pvcs uninstall-ingestion-pipeline
+uninstall: uninstall-helm-release uninstall-mcp-servers uninstall-ingestion-pipeline remove-secrets remove-pvcs
 
 	@echo "Checking for any remaining resources in namespace $(NAMESPACE)..."
 	@echo "If you want to completely remove the namespace, run: oc delete project $(NAMESPACE)"
@@ -186,7 +186,6 @@ remove-pvcs:
 	@echo "Removing pgvector and minio PVCs"
 	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^pg-data")
 	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^minio-data")
-	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^llama-stack-data")
 
 # Check deployment status
 .PHONY: status

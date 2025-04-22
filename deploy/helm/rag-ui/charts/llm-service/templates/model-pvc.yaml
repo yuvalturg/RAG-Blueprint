@@ -1,4 +1,4 @@
-{{- range $key, $model := .Values.models }}
+{{- range $key, $model := .Values.global.models }}
 {{- if $model.enabled }}
 ---
 kind: PersistentVolumeClaim
