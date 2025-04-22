@@ -15,13 +15,6 @@ Before deploying, make sure you have the following:
 - A valid **Hugging Face Token**.
 - Access to meta-llama/Llama-3.2-3B-Instruct model
 
-## Modelcars
-We deploy models using modelcars.  In order to build modelcars for specific models, we may use modelcars/Containerfile as follows:
-
-```bash
-podman build modelcars --build-arg=HF_TOKEN=${HF_TOKEN} --build-arg=MODEL_ID=meta-llama/Llama-3.2-3B-Instruct -t quay.io/username/modelcars:llama-3.2-3b-instruct
-podman push quay.io/username/modelcars:llama-3.2-3b-instruct
-```
 
 ## Pre-deployment Steps
 In case you have a fresh cluster -
@@ -42,14 +35,20 @@ This will set your cluster to use the provided GPUs and you can move forward to 
    ```bash
    cd deploy/helm
    ```
-
-3. Run the install command:
-
+3. List available models
    ```bash
-   make install NAMESPACE=llama-stack-rag
+   $ make list-models
+   model: llama-3-2-3b-instruct
+   model: llama-guard-3-8b (shield)
    ```
 
-4. When prompted, enter your **Hugging Face Token**.
+4. Run the install command:
+
+   ```bash
+   make install NAMESPACE=llama-stack-rag LLM=llama-3-2-3b-instruct SAFETY=llama-guard-3-8b
+   ```
+
+5. When prompted, enter your **Hugging Face Token**.
 
    The script will:
 
@@ -75,7 +74,7 @@ You should see the running components, services, and exposed routes.
 
 ## Workbench deployment verification
 
-Navigate to RHOAI dashboard and verify the following - 
+Navigate to RHOAI dashboard and verify the following -
 1. You should be able to see a running workbench with running jupyter notebook.
 
 ![Workbench UI](workbench.png)
@@ -84,20 +83,20 @@ Navigate to RHOAI dashboard and verify the following -
 
 ![Notebook](jupyter-nb.png)
 
-3. Before running that make sure you have your Kubeflow Pipelines configured with your object storage. 
+3. Before running that make sure you have your Kubeflow Pipelines configured with your object storage.
    Reference link(configuration) - https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.8/html/working_on_data_science_projects/working-with-data-science-pipelines_ds-pipelines#configuring-a-pipeline-server_ds-pipelines
 
   For access and secret keys --
   - Navigate to `minio-webui`
   - Login with credentials
-  - Create access and secret key in minIO 
+  - Create access and secret key in minIO
   - Upload your files in the already created `llama` bucket
-  - Now navigate to Kubeflow Pipelines on Openshift AI and configure it with the generated secret and access keys. Configure with the same bucket name as in minIO `llama`. 
+  - Now navigate to Kubeflow Pipelines on Openshift AI and configure it with the generated secret and access keys. Configure with the same bucket name as in minIO `llama`.
 
   ![KFP](kfp-configure.png)
 
-4. Once verified, run the python script. 
-5. This should create `pipelines` and `run` in the Kubeflow pipelines. 
+4. Once verified, run the python script.
+5. This should create `pipelines` and `run` in the Kubeflow pipelines.
 
 ![KFP-pipeline](kfp-pipeline.png)
 
@@ -115,7 +114,7 @@ Type "help" for help.
 
 rag_blueprint=# \dt
                List of relations
- Schema |       Name        | Type  |  Owner   
+ Schema |       Name        | Type  |  Owner
 --------+-------------------+-------+----------
  public | metadata_store    | table | postgres
  public | vector_store_test | table | postgres
@@ -123,28 +122,28 @@ rag_blueprint=# \dt
 
 rag_blueprint=# \d+ vector_store_test
                                         Table "public.vector_store_test"
-  Column   |    Type     | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+  Column   |    Type     | Collation | Nullable | Default | Storage  | Compression | Stats target | Description
 -----------+-------------+-----------+----------+---------+----------+-------------+--------------
- id        | text        |           | not null |         | extended |             |              | 
- document  | jsonb       |           |          |         | extended |             |              | 
- embedding | vector(384) |           |          |         | external |             |              | 
+ id        | text        |           | not null |         | extended |             |              |
+ document  | jsonb       |           |          |         | extended |             |              |
+ embedding | vector(384) |           |          |         | external |             |              |
 Indexes:
     "vector_store_test_pkey" PRIMARY KEY, btree (id)
 Access method: heap
 
 rag_blueprint=# \d+ vector_store_test
                                   Table "public.vector_store_test"
-  Column   |    Type     | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
+  Column   |    Type     | Collation | Nullable | Default | Storage  | Compression | Stats target | Description
 -----------+-------------+-----------+----------+---------+----------+-------------+--------------+-------------
- id        | text        |           | not null |         | extended |             |              | 
- document  | jsonb       |           |          |         | extended |             |              | 
- embedding | vector(384) |           |          |         | external |             |              | 
+ id        | text        |           | not null |         | extended |             |              |
+ document  | jsonb       |           |          |         | extended |             |              |
+ embedding | vector(384) |           |          |         | external |             |              |
 Indexes:
     "vector_store_test_pkey" PRIMARY KEY, btree (id)
 Access method: heap
 
 rag_blueprint=# SELECT COUNT(*) FROM vector_store_test;
- count 
+ count
 -------
    154
 (1 row)
