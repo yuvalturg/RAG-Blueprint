@@ -32,6 +32,21 @@ oc get routes rhods-dashboard -n redhat-ods-applications
 
   ![KFP](img/kfp-configure.png)
 
+  For exact values, see CLI commands below
+
+  Access key is $MINIO_USER
+  minio_rag_user
+
+  Secret key is $MINIO_PASSWORD
+  minio_rag_password
+
+  Endpoint is $MINIO_API
+  
+  Region is us-east-1
+
+  Bucket is `llama`
+
+
   CLI steps to work with the built-in minio
 
 
@@ -63,8 +78,13 @@ If not present, create the `llama` bucket to hold documents for pre-ingestion
 mc mb minio/llama
 ```
 
+And you can move some documents into the bucket via
 
-And you can open the Minio WebUI via to create buckets
+```bash
+mc cp ~/my-documents/my.pdf minio/llama
+```
+
+And you can open the Minio WebUI to create buckets and add documents
 
 ```bash
 MINIO_WEB="https://$(oc get route minio-webui -o jsonpath='{.spec.host}')"
