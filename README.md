@@ -1,159 +1,153 @@
-# LLaMA Stack RAG Deployment
+# RAG Reference Architecture using LLaMA Stack, OpenShift AI, and PGVector
 
-This guide helps you deploy the **LLaMA Stack RAG UI** on an OpenShift cluster using Helm.
+## Overview
 
+Retrieval-Augmented Generation (RAG) enhances Large Language Models (LLMs) by retrieving relevant external knowledge to improve accuracy, reduce hallucinations, and support domain-specific conversations. This architecture uses:
 
-## Prerequisites
+- **OpenShift AI** for orchestration
+- **LLaMA Stack** for standardizing the core building blocks thaandt simplifying AI application development.
+- **PGVector** for semantic search
+- **Kubeflow Pipelines** for data ingestion
+- **Streamlit / React UI** for a user-friendly chatbot interface
+  
+---
 
-Before deploying, make sure you have the following:
+## Architecture Diagram
 
-- Access to an **OpenShift** cluster with appropriate permissions.
-- NFD Operator and NVIDIA-GPU operator installed
-- Two GPU nodes, one for vLLM and the other for Safety Model(A10 nodes)
-- The label - you can have any label on the node and pass it as part of the parameter to the deploy script. Please refer `deploy.sh`.
-- Helm is installed
-- A valid **Hugging Face Token**.
-- Access to meta-llama/Llama-3.2-3B-Instruct model
+![RAG System Architecture](docs/img/rag-architecture.png)
 
+*The architecture illustrates both the ingestion pipeline for document processing and the RAG pipeline for query handling. For more details click [here](docs/rag-reference-architecture.md).*
 
-## Pre-deployment Steps
-In case you have a fresh cluster -
-1. Install NFD Operator from OperatorHub
-2. Create default instance(no change needed)
-3. Validate in the GPU nodes if you have required `10de` labels in place
-4. Install NVIDIA-GPU operator and create the ClusterPolicy(default)
-5. Install RHOAI Operator and create DataScienceCluster instance(keep it default).
+---
 
-This will set your cluster to use the provided GPUs and you can move forward to deploying AI workloads.
+## Features
 
-## Deployment Steps
+- Multi-Modal Data Ingestion for ingesting unstructured data.
+- Preprocessing pipelines for cleaning, chunking, and embedding generation using language models.
+- Vector Store Integration to store dense embeddings
+- Integrates with LLMs to generate responses based on retrieved documents.
+- Streamlit based web application.
+- Runs on OpenShift AI for container orchestration and GPU acceleration.
+- Llama Stack to standardize the core building blocks and simplify AI application development
+- Safety Guardrail to block harmful request / response.
+- Integration with MCP servers.
 
-1. Prior to deploying, ensure that you have access to the meta-llama/Llama-3.2-3B-Instruct model. If not, you can visit this meta and get access - https://www.llama.com/llama-downloads/
+---
 
-2. Once everything's set, navigate to the Helm deployment directory:
+## Ingestion Use Cases
+
+### 1. BYOD (Bring Your Own Document)
+
+End users can upload files through a UI and receive contextual answers based on uploaded content.
+
+### 2. Pre-Ingestion
+
+Enterprise documents are pre-processed and ingested into the system for later querying using via OpenShift AI/Kubeflow Pipelines.
+
+---
+
+## Key Components
+
+| Layer            | Component                      | Description |
+|------------------|--------------------------------|-------------|
+| **UI Layer**     | Streamlit / React              | Chat-based user interaction |
+| **Retrieval**    | Retriever                      | Vector search |
+| **Embedding**    | `all-MiniLM-L6-v2`             | Converts text to vectors |
+| **Vector DB**    | PostgreSQL + PGVector          | Stores embeddings |
+| **LLM**          | `Llama-3.2-3B-Instruct`        | Generates responses |
+| **Ingestor**     |  Kubeflow Pipeline             | Embeds documents and stores vectors |
+| **Storage**      |  S3 Bucket                     | Document source |
+
+---
+
+## Scalability & Performance
+
+- KServe for auto-scaling the model and embedding pods
+- GPU-based inference optimized using node selectors
+- Horizontal scaling of ingestion and retrieval components
+
+---
+
+The Bluprint supports two modes of deployments
+
+- Local
+- Openshift
+
+## OpenShift Deployment
+
+### Minimum Requirements
+
+- OpenShift Cluster 4.16+ with OpenShift AI
+- 2+ GPUs one for LLM and the another for Safety Model (A10 nodes), refer to the chart below
+- [Hugging Face Token](https://huggingface.co/settings/tokens)
+- Access to [Meta Llama](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct/tree/main) models.
+
+### Supported Models
+
+| Function       | Model Name                                | GPU                  |
+|----------------|-------------------------------------------|----------------------|
+| Embedding      | `all-MiniLM-L6-v2`                        | A10 (Optional)       |
+| Safety         | `meta-llama/Llama-Guard-3-8B`             | A10                  |
+| Generation     | `meta-llama/Llama-3.2-3B-Instruct`        | A10                  |
+|                | `meta-llama/Meta-Llama-3-70B-Instruct`    | NVIDIA A100 80GB x2  |
+
+---
+
+1. Navigate to Helm deploy directory:
 
    ```bash
    cd deploy/helm
    ```
-3. List available models
+
+2. List available models
+
    ```bash
-   $ make list-models
-   model: llama-3-2-3b-instruct
-   model: llama-guard-3-8b (shield)
+   make list-models
    ```
 
-4. Run the install command:
+   The above command will list the models to use in the next command
 
    ```bash
+   (Output)
+   model: llama-3-2-3b-instruct
+   model: llama-guard-3-8b (shield) 
+   ```
+
+3. Install:
+
+    ```bash
    make install NAMESPACE=llama-stack-rag LLM=llama-3-2-3b-instruct SAFETY=llama-guard-3-8b
    ```
 
-5. When prompted, enter your **Hugging Face Token**.
+   If you have tainted the nodes, you can specify
 
-   The script will:
+   ```bash
+   make install NAMESPACE=llama-stack-rag LLM=llama-3-2-3b-instruct LLM_TOLERATION="nvidia.comg/gpu" SAFETY=llama-guard-3-8b SAFETY_TOLERATION="nvidia.comg/gpu"
+   ```
 
-   - Create a new project: `llama-stack-rag`
-   - Create and annotate the `huggingface-secret`
-   - Deploy the Helm chart with toleration settings
-   - Output the status of the deployment
+   When prompted, enter your **[Hugging Face Token]((https://huggingface.co/settings/tokens))**.
 
+4. Verify:
 
-## Post-deployment Verification
+   ```bash
+   kubectl get pods -n rag-app
+   kubectl get svc -n rag-app
+   kubectl get routes -n rag-app
+   ```
 
-Once deployed, verify the following:
+   **TODO: Add the instructions to display the URL to launch app**
 
-```bash
-kubectl get pods -n llama-stack-rag
+   Refer to the [post installation](docs/post_installation.md) document for document ingestion.
 
-kubectl get svc -n llama-stack-rag
+5. Uninstall:
 
-kubectl get routes -n llama-stack-rag
-```
+   ```bash
+   make uninstall NAMESPACE=rag-app
+   ```
 
-You should see the running components, services, and exposed routes.
+## Local Deployment
 
-## Workbench deployment verification
-
-Navigate to RHOAI dashboard and verify the following -
-1. You should be able to see a running workbench with running jupyter notebook.
-
-![Workbench UI](workbench.png)
-
-2. Jupyter notebook should have a python script.
-
-![Notebook](jupyter-nb.png)
-
-3. Before running that make sure you have your Kubeflow Pipelines configured with your object storage.
-   Reference link(configuration) - https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/2.8/html/working_on_data_science_projects/working-with-data-science-pipelines_ds-pipelines#configuring-a-pipeline-server_ds-pipelines
-
-  For access and secret keys --
-  - Navigate to `minio-webui`
-  - Login with credentials
-  - Create access and secret key in minIO
-  - Upload your files in the already created `llama` bucket
-  - Now navigate to Kubeflow Pipelines on Openshift AI and configure it with the generated secret and access keys. Configure with the same bucket name as in minIO `llama`.
-
-  ![KFP](kfp-configure.png)
-
-4. Once verified, run the python script.
-5. This should create `pipelines` and `run` in the Kubeflow pipelines.
-
-![KFP-pipeline](kfp-pipeline.png)
-
-![KFP](kfp-run.png)
-
-![KFP](kfp-logs.png)
-
-
-## Verifying the embeddings in PGVector
-
-```
-psql -d rag_blueprint -U postgres
-psql (17.4 (Debian 17.4-1.pgdg120+2))
-Type "help" for help.
-
-rag_blueprint=# \dt
-               List of relations
- Schema |       Name        | Type  |  Owner
---------+-------------------+-------+----------
- public | metadata_store    | table | postgres
- public | vector_store_test | table | postgres
-(2 rows)
-
-rag_blueprint=# \d+ vector_store_test
-                                        Table "public.vector_store_test"
-  Column   |    Type     | Collation | Nullable | Default | Storage  | Compression | Stats target | Description
------------+-------------+-----------+----------+---------+----------+-------------+--------------
- id        | text        |           | not null |         | extended |             |              |
- document  | jsonb       |           |          |         | extended |             |              |
- embedding | vector(384) |           |          |         | external |             |              |
-Indexes:
-    "vector_store_test_pkey" PRIMARY KEY, btree (id)
-Access method: heap
-
-rag_blueprint=# \d+ vector_store_test
-                                  Table "public.vector_store_test"
-  Column   |    Type     | Collation | Nullable | Default | Storage  | Compression | Stats target | Description
------------+-------------+-----------+----------+---------+----------+-------------+--------------+-------------
- id        | text        |           | not null |         | extended |             |              |
- document  | jsonb       |           |          |         | extended |             |              |
- embedding | vector(384) |           |          |         | external |             |              |
-Indexes:
-    "vector_store_test_pkey" PRIMARY KEY, btree (id)
-Access method: heap
-
-rag_blueprint=# SELECT COUNT(*) FROM vector_store_test;
- count
--------
-   154
-(1 row)
-```
-
-## Resource cleanup
-
-```
-make uninstall NAMESPACE=llama-stack-rag
-```
+WIP
 
 LLama UI
-![Llama UI](Llama-UI.png)
+![Llama UI](docs/img/Llama-UI.png)
