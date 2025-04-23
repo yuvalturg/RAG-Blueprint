@@ -63,8 +63,14 @@ global:
     llama-3-1-70b-instruct:
       id: meta-llama/Llama-3.1-70B-Instruct
       enabled: false
+      storageSize: 150Gi
       inferenceService:
+        resources:
+          limits:
+            nvidia.com/gpu: "4"
         args:
+        - --tensor-parallel-size
+        - "4"
         - --gpu-memory-utilization
         - "0.95"
         - --quantization
@@ -76,8 +82,8 @@ global:
         - /vllm-workspace/examples/tool_chat_template_llama3.1_json.jinja
         - --tool-call-parser
         - llama3_json
-        - --port
-        - "8000"
+        - --swap-space
+        - "32"
       llamaStack:
         modelIdEnvName: LLAMA_INSTRUCT70B_MODEL
         modelUrl:
