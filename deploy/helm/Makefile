@@ -101,7 +101,7 @@ list-models-%:
 .PHONY: list-models
 list-models: list-models-gpu
 
-set_helm_values = \
+set_helm_args = \
     $(if $(LLM),--set-json global.models.$(LLM).enabled='true',) \
     $(if $(SAFETY),--set-json global.models.$(SAFETY).enabled='true',) \
     $(if $(LLM_URL),--set-json global.models.$(LLM).llamaStack.modelUrl.envValue='"$(LLM_URL)"',) \
@@ -112,19 +112,18 @@ set_helm_values = \
 install-%: namespace secrets
 
 	# Build helm upgarde args from env
-	@$(eval SET_VALUES := $(call set_helm_values))
+	@$(eval HELM_ARGS := $(call set_helm_args))
 
 	@$(MAKE) install-mcp-servers
 
 	@echo "Deploying Helm chart $(CHART_PATH) (services) release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
-	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) --wait --values rag-ui/values-$*.yaml \
-	--set-json llama-stack.enabled=false $(SET_VALUES)
-
-	oc rollout status deployment -n $(NAMESPACE) -l component=predictor
+	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) --values rag-ui/values-$*.yaml \
+	--set-json llama-stack.enabled=false $(HELM_ARGS) $(EXTRA_HELM_ARGS)
+	oc wait -n $(NAMESPACE) --for=condition=Ready --timeout=60m inferenceservice --all
 
 	@echo "Deploying Helm chart $(CHART_PATH) (llamastack) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) --values rag-ui/values-$*.yaml \
-	--set-json llama-stack.enabled=true $(SET_VALUES)
+	--set-json llama-stack.enabled=true $(HELM_ARGS) $(EXTRA_HELM_ARGS)
 
 	@$(MAKE) pg-vector
 

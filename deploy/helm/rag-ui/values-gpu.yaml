@@ -60,8 +60,8 @@ global:
           envName: LLAMA_GUARD1B_VLLM_URL
           envValue: auto
         registerShield: true
-    llama-3-1-70b-instruct:
-      id: meta-llama/Llama-3.1-70B-Instruct
+    llama-3-3-70b-instruct:
+      id: meta-llama/Llama-3.3-70B-Instruct
       enabled: false
       storageSize: 150Gi
       inferenceService:
@@ -79,7 +79,7 @@ global:
         - "4096"
         - --enable-auto-tool-choice
         - --chat-template
-        - /vllm-workspace/examples/tool_chat_template_llama3.1_json.jinja
+        - /vllm-workspace/examples/tool_chat_template_llama3.2_json.jinja
         - --tool-call-parser
         - llama3_json
         - --swap-space
