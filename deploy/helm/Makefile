@@ -208,7 +208,7 @@ status:
 .PHONY: wait
 wait:
 	@echo "Waiting for all pods to be ready in namespace $(NAMESPACE)..."
-	@timeout 3600 bash -c 'until oc wait --for=condition=Ready pods --all -n $(NAMESPACE) --timeout=10s 2>/dev/null; do echo "Waiting for pods to be ready..."; sleep 5; done'
+	oc wait --for=condition=Ready pods --all -n $(NAMESPACE) --timeout=30m
 	@echo "All pods are now ready!"
 	
 	@echo "Checking deployment health..."
