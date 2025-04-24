@@ -119,7 +119,7 @@ install-%: namespace secrets
 	@echo "Deploying Helm chart $(CHART_PATH) (services) release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) --values rag-ui/values-$*.yaml \
 	--set-json llama-stack.enabled=false $(HELM_ARGS) $(EXTRA_HELM_ARGS)
-	oc wait -n $(NAMESPACE) --for=condition=Ready --timeout=60m inferenceservice --all
+	oc wait -n $(NAMESPACE) --for=condition=Ready --timeout=60m inferenceservice --all ||:
 
 	@echo "Deploying Helm chart $(CHART_PATH) (llamastack) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) --values rag-ui/values-$*.yaml \
