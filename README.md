@@ -301,7 +301,7 @@ Give the weather MCP-based tool a test with a US-based city by toggling on "mcp:
 
 ![RAG UI MCP weather](./docs/img/rag-ui-3.png)
 
-## Redeploy Changes
+### Redeploy Changes
 
 Make changes to app.py
 
@@ -325,4 +325,57 @@ image:
 ```
 
  To redeploy to the cluster run the same `make` command as you did before.
+
+### Shields
+
+```bash
+export LLAMA_STACK_ENDPOINT=http://localhost:8321
+```
+
+First see what models are available
+
+```bash
+curl -sS $LLAMA_STACK_SERVER/v1/models -H "Content-Type: application/json" | jq -r '.data[].identifier'
+```
+
+```
+(Output)
+meta-llama/Llama-3.2-3B-Instruct
+meta-llama/Llama-Guard-3-8B
+all-MiniLM-L6-v2
+```
+
+The "Guard" model is the one appropriate for adding as a Llama Stack Shield
+
+From within the `ui` directory or whichever one has the `venv` with the dependencies
+
+Register the shield
+
+```
+python ../shields/register-shield.py
+```
+
+List shields
+
+```
+python ../shields/list-shields.py
+```
+
+Test the shield
+
+```
+python ../shields/test-shield.py
+```
+
+```
+(Output)
+LLAMA_STACK_ENDPOINT: http://localhost:8321
+LLAMA_STACK_MODEL: meta-llama/Llama-3.2-3B-Instruct
+Safety violation detected: I can't answer that. Can I help with something else?
+'response: <generator object Agent._create_turn_streaming at 0x1052ecd60>'
+shield_call> No Violation
+inference> The friendly stranger smiled and said hello as she approached the table where I was sitting alone.
+'response: <generator object Agent._create_turn_streaming at 0x1052ed000>'
+shield_call> {'violation_type': 'S1'} I can't answer that. Can I help with something else?
+```
 
