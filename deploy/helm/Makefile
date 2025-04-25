@@ -2,9 +2,9 @@
 # Replaces the original deploy.sh script with additional uninstall functionality
 
 ifeq ($(NAMESPACE),)
-	ifeq ($(findstring list-models,$(MAKECMDGOALS)),)
-		$(error NAMESPACE is not set)
-	endif
+ifeq (,$(filter list-models help,$(MAKECMDGOALS)))
+$(error NAMESPACE is not set)
+endif
 endif
 
 # Default values
@@ -15,8 +15,6 @@ MINIO_USER ?= minio_rag_user
 MINIO_PASSWORD ?= minio_rag_password
 RELEASE_NAME ?= rag
 CHART_PATH ?= rag-ui
-TOLERATION_LLM_SERVER ?= odh-notebook
-TOLERATION_SAFETY_SERVER ?= odh-notebook
 HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
 MCP_SERVERS_CHART_PATH ?= mcp-servers
 INGESTION_PIPELINE_CHART_PATH ?= ingestion-pipeline
@@ -33,14 +31,18 @@ help:
 	@echo "  uninstall     - Uninstall the RAG deployment and clean up resources"
 	@echo "  status        - Check status of the deployment"
 	@echo "  wait          - Wait for all pods to be ready and verify deployment health"
+	@echo "  list-models       - List available models for GPU"
+	@echo "  list-models-cpu   - List available models for CPU"
 	@echo ""
 	@echo "Configuration options (set via environment variables or make arguments):"
-	@echo "  NAMESPACE     			- Target namespace (default: llama-stack-rag)"
-	@echo "  RELEASE_NAME  			- Helm release name (default: rag)"
-	@echo "  CHART_PATH    			- Path to the Helm chart (default: rag-ui)"
-	@echo "  HF_TOKEN      			- Hugging Face Token (will prompt if not provided)"
-	@echo "  TOLERATION_LLM_SERVER			- Toleration for LLM Server (default: odh-notebook)"
-	@echo "  TOLERATION_SAFETY_SERVER		- Toleration for Safety Server (default: odh-notebook)"
+	@echo "  NAMESPACE                - Target namespace (default: llama-stack-rag)"
+	@echo "  RELEASE_NAME             - Helm release name (default: rag)"
+	@echo "  CHART_PATH               - Path to the Helm chart (default: rag-ui)"
+	@echo "  HF_TOKEN                 - Hugging Face Token (will prompt if not provided)"
+	@echo "  {SAFETY,LLM}             - Model id as defined in values (eg. llama-3-2-1b-instruct)"
+	@echo "  {SAFETY,LLM}_URL         - Model URL"
+	@echo "  {SAFETY,LLM}_API_TOKEN   - Model API token for remote models"
+	@echo "  {SAFETY,LLM}_TOLERATION  - Model pod toleration"
 
 # Create namespace and deploy
 .PHONY: namespace
@@ -104,8 +106,10 @@ list-models: list-models-gpu
 set_helm_args = \
     $(if $(LLM),--set-json global.models.$(LLM).enabled='true',) \
     $(if $(SAFETY),--set-json global.models.$(SAFETY).enabled='true',) \
-    $(if $(LLM_URL),--set-json global.models.$(LLM).llamaStack.modelUrl.envValue='"$(LLM_URL)"',) \
-    $(if $(SAFETY_URL),--set-json global.models.$(SAFETY).llamaStack.modelUrl.envValue='"$(SAFETY_URL)"',) \
+    $(if $(LLM_URL),--set-json global.models.$(LLM).llamaStack.url='"$(LLM_URL)"',) \
+    $(if $(SAFETY_URL),--set-json global.models.$(SAFETY).llamaStack.url='"$(SAFETY_URL)"',) \
+    $(if $(LLM_API_TOKEN),--set-json global.models.$(LLM).llamaStack.apiToken='"$(LLM_API_TOKEN)"',) \
+    $(if $(SAFETY_API_TOKEN),--set-json global.models.$(SAFETY).llamaStack.apiToken='"$(SAFETY_API_TOKEN)"',) \
     $(if $(LLM_TOLERATION),--set-json global.models.$(LLM).inferenceService.tolerations='$(call TOLERATIONS_TEMPLATE,$(LLM_TOLERATION))',) \
     $(if $(SAFETY_TOLERATION),--set-json global.models.$(SAFETY).inferenceService.tolerations='$(call TOLERATIONS_TEMPLATE,$(SAFETY_TOLERATION))',)
 

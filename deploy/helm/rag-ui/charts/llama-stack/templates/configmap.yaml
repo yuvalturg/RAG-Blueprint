@@ -1,3 +1,5 @@
+{{- $root := . }}
+---
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -23,9 +25,13 @@ data:
       - provider_id: {{ $key }}
         provider_type: remote::vllm
         config:
-          url: ${env.{{ $model.llamaStack.modelUrl.envName }}}
-          max_tokens: 4096
-          api_token: fake
+          {{- if eq $model.llamaStack.url "auto" }}
+          url: https://{{ $key }}.{{ $root.Release.Namespace }}.svc.cluster.local/v1
+          {{- else }}
+          url: {{ $model.llamaStack.url }}
+          {{- end }}
+          api_token: {{ $model.llamaStack.apiToken | default "fake" }}
+          max_tokens: {{ $model.llamaStack.maxTokens | default 4096 }}
           tls_verify: ${env.VLLM_TLS_VERIFY:false}
       {{- end }}
       {{- end }}
@@ -127,7 +133,7 @@ data:
     {{- range $key, $model := $.Values.global.models }}
     {{- if $model.enabled }}
     - metadata: {}
-      model_id: ${env.{{ $model.llamaStack.modelIdEnvName }}}
+      model_id: {{ $model.id }}
       provider_id: {{ $key }}
       model_type: llm
     {{- end }}
@@ -141,7 +147,7 @@ data:
     {{- range $key, $model := $.Values.global.models }}
     {{- if $model.enabled }}
     {{- if $model.llamaStack.registerShield }}
-    - shield_id: ${env.{{ $model.llamaStack.modelIdEnvName }}}
+    - shield_id: {{ $model.id }}
       provider_id: llama-guard
     {{- end }}
     {{- end }}

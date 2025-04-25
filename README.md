@@ -9,7 +9,7 @@ Retrieval-Augmented Generation (RAG) enhances Large Language Models (LLMs) by re
 - **PGVector** for semantic search
 - **Kubeflow Pipelines** for data ingestion
 - **Streamlit UI** for a user-friendly chatbot interface
-  
+
 
 ---
 
@@ -81,18 +81,18 @@ The kickstart supports two modes of deployments
 - OpenShift Cluster 4.16+ with OpenShift AI
 - OpenShift Client CLI - [oc](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/cli_tools/openshift-cli-oc#installing-openshift-cli)
 - Helm CLI - helm
-- (Optional) huggingface-cli 
+- (Optional) huggingface-cli
 - 2 GPUs, each with 24GB of VRAM, one for LLM and the another for Safety Model, refer to the chart below
 - [Hugging Face Token](https://huggingface.co/settings/tokens)
 - Access to [Meta Llama](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct/) model.
 - Access to [Meta Llama Guard](https://huggingface.co/meta-llama/Llama-Guard-3-8B/) model.
-- Some of the example scripts use `jq` a JSON parsing utility which you can acquire via `brew install jq` 
+- Some of the example scripts use `jq` a JSON parsing utility which you can acquire via `brew install jq`
 
 ### Supported Models
 
 | Function    | Model Name                             | GPU         | AWS
 |-------------|----------------------------------------|-------------|-------------
-| Embedding   | `all-MiniLM-L6-v2`                     | CPU or GPU  | 
+| Embedding   | `all-MiniLM-L6-v2`                     | CPU or GPU  |
 | Safety      | `meta-llama/Llama-Guard-3-8B`          | L4          | g6.2xlarge
 | Generation  | `meta-llama/Llama-3.2-3B-Instruct`     | L4          | g6.2xlarge
 
@@ -102,7 +102,7 @@ Note: 70B model is NOT required for initial testing of this example
 
 ---
 
-#### Installation steps 
+#### Installation steps
 
 1. git clone so you have a working copy
 
@@ -178,7 +178,7 @@ The above command will list the models to use in the next command
 ```bash
 (Output)
 model: llama-3-2-3b-instruct
-model: llama-guard-3-8b (shield) 
+model: llama-guard-3-8b (shield)
 ```
 
 6. Install via make:
@@ -201,10 +201,10 @@ When prompted, enter your **[Hugging Face Token]((https://huggingface.co/setting
 
 This process often takes 11 to 30 minutes
 
-7. Watch/Monitor   
+7. Watch/Monitor
 
 ```bash
-oc get pods -n llama-stack-rag 
+oc get pods -n llama-stack-rag
 ```
 
 ```
@@ -229,7 +229,7 @@ oc get routes -n llama-stack-rag
 ```
 
 9. Open RAG UI
-   
+
 ```bash
 URL=http://$(oc get routes -l app.kubernetes.io/name=rag-ui -o jsonpath="{range .items[*]}{.status.ingress[0].host}{end}")
 open $URL
@@ -245,8 +245,8 @@ Create Vector Database
 
 ![RAG UI Main 2](./docs/img/rag-ui-2.png)
 
-Look for `Vector database created successfully!` 
-   
+Look for `Vector database created successfully!`
+
 Select a Vector Database of `rag_vector_db`
 
 Ask a question of your document
@@ -263,6 +263,33 @@ or
 ```bash
 oc delete project llama-stack-rag
 ```
+
+## Defining a new model
+Update the Helm values file to use a remote vLLM server:
+1. Open the file `deploy/helm/rag-ui/values-gpu.yaml`
+2. Under the `.global.models` section, add a model object.
+```yaml
+global:
+  models:
+    llama-3-2-3b-instruct:
+      id: meta-llama/Llama-3.2-3B-Instruct
+      enabled: false
+      inferenceService:
+        args:
+        - --enable-auto-tool-choice
+        - --chat-template
+        - /vllm-workspace/examples/tool_chat_template_llama3.2_json.jinja
+        - --tool-call-parser
+        - llama3_json
+        - --max-model-len
+        - "30544"
+      llamaStack:
+        url: auto
+```
+
+To configure the UI to only use a remote vLLM server:
+1. Remove the entire inferenceService block.
+2. Set the model’s url field to point to the remote vLLM server endpoint.
 
 ## Local Development Setup
 
@@ -305,7 +332,7 @@ Give the weather MCP-based tool a test with a US-based city by toggling on "mcp:
 
 Make changes to app.py
 
-Deployment after making changes requires a rebuild of the container image using either `docker` or `podman`.  Replace `docker.io` with your target container registry such as `quay.io`. 
+Deployment after making changes requires a rebuild of the container image using either `docker` or `podman`.  Replace `docker.io` with your target container registry such as `quay.io`.
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 -t docker.io/burrsutter/rag-ui:v1 -f Containerfile .

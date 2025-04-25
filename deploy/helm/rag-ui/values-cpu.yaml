@@ -14,10 +14,8 @@ global:
         - --max-model-len
         - "30544"
       llamaStack:
-        modelIdEnvName: LLAMA_INSTRUCT_MODEL
-        modelUrl:
-          envName: LLAMA_INSTRUCT_VLLM_URL
-          envValue: auto
+        url: auto
+
     llama-guard-3-1b:
       id: meta-llama/Llama-Guard-3-1B
       enabled: false
@@ -27,10 +25,7 @@ global:
         - --max-model-len
         - "14336"
       llamaStack:
-        modelIdEnvName: LLAMA_GUARD_MODEL
-        modelUrl:
-          envName: LLAMA_GUARD_VLLM_URL
-          envValue: auto
+        url: auto
         registerShield: true
 
 llm-service:
