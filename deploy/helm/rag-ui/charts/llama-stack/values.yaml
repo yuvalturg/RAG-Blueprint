@@ -129,3 +129,27 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+models:
+  llama-3-2-3b-instruct:
+    id: meta-llama/Llama-3.2-3B-Instruct
+    enabled: false
+    url: local-ns
+  llama-guard-3-8b:
+    id: meta-llama/Llama-Guard-3-8B
+    enabled: false
+    url: local-ns
+    registerShield: true
+  llama-3-2-1b-instruct:
+    id: meta-llama/Llama-3.2-1B-Instruct
+    enabled: false
+    url: local-ns
+  llama-guard-3-1b:
+    id: meta-llama/Llama-Guard-3-1B
+    enabled: false
+    url: local-ns
+    registerShield: true
+  llama-3-3-70b-instruct:
+    id: meta-llama/Llama-3.3-70B-Instruct
+    enabled: false
+    url: local-ns
