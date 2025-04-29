@@ -2,7 +2,7 @@
 # Replaces the original deploy.sh script with additional uninstall functionality
 
 ifeq ($(NAMESPACE),)
-ifeq (,$(filter list-models-% help,$(MAKECMDGOALS)))
+ifeq (,$(filter list-models% help,$(MAKECMDGOALS)))
 $(error NAMESPACE is not set)
 endif
 endif
@@ -40,7 +40,6 @@ REGION ?= us-east-1
 S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
 
 
-
 # Default target
 .PHONY: help
 help:
@@ -64,13 +63,11 @@ help:
 	@echo "  {SAFETY,LLM}_TOLERATION  - Model pod toleration"
 
 # Create namespace and deploy
-.PHONY: namespace
 namespace:
-
 	@echo "Creating namespace $(NAMESPACE)..."
 	oc create namespace $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false || oc project $(NAMESPACE) ||:
+	@touch namespace
 
-.PHONY: secrets
 secrets:
 	@echo "Creating Hugging Face secret..."
 	oc create secret -n $(NAMESPACE) generic huggingface-secret --from-literal=HF_TOKEN="$(HF_TOKEN)" --dry-run=client -o yaml | oc apply -f -
@@ -94,6 +91,7 @@ secrets:
 	oc annotate secret huggingface-secret -n $(NAMESPACE) meta.helm.sh/release-name=$(RELEASE_NAME) meta.helm.sh/release-namespace=$(NAMESPACE) --overwrite
 	oc annotate secret pgvector -n $(NAMESPACE) meta.helm.sh/release-name=rag meta.helm.sh/release-namespace=$(NAMESPACE)
 	oc annotate secret minio -n $(NAMESPACE) meta.helm.sh/release-name=rag meta.helm.sh/release-namespace=$(NAMESPACE)
+	@touch secrets
 
 .PHONY: pg-vector
 pg-vector:
@@ -131,7 +129,6 @@ create-ingestion-pipeline: namespace
 	@echo "Deploying Helm chart $(INGESTION_PIPELINE_CHART_PATH) as release $(INGESTION_PIPELINE_RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm install $(INGESTION_PIPELINE_RELEASE_NAME) $(INGESTION_PIPELINE_CHART_PATH) -n $(NAMESPACE) $(INGESTION_ARGS)
 
-
 list-models-%:
 	@helm template dummy-release $(LLM_SERVICE_CHART_PATH) --set _debugListModels=true --values $(LLM_SERVICE_CHART_PATH)/values-$*.yaml |grep ^model
 
@@ -147,8 +144,10 @@ helm_llm_service_args = \
 install-llm-service-%: namespace secrets
 	@$(eval HELM_ARGS := $(call helm_llm_service_args))
 
+	@echo "Deploying Helm chart $(LLM_SERVICE_CHART_PATH) as release $(LLM_SERVICE_RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(LLM_SERVICE_RELEASE_NAME) $(LLM_SERVICE_CHART_PATH) -n $(NAMESPACE) --values $(LLM_SERVICE_CHART_PATH)/values-$*.yaml \
 	$(HELM_ARGS) $(EXTRA_HELM_ARGS)
+	@echo "Waiting for model services to deploy..."
 	oc wait -n $(NAMESPACE) --for=condition=Ready --timeout=60m inferenceservice --all ||:
 
 .PHONY: install-llm-service
@@ -163,16 +162,13 @@ helm_llama_stack_args = \
     $(if $(SAFETY_API_TOKEN),--set-json llama-stack.models.$(SAFETY).apiToken='"$(SAFETY_API_TOKEN)"',) \
 
 .PHONY: install-rag
-install-rag: namespace secrets
+install-rag: namespace secrets install-mcp-servers
 	@$(eval HELM_ARGS := $(call helm_llama_stack_args))
-
-	@$(MAKE) install-mcp-servers
 
 	@echo "Deploying Helm chart $(CHART_PATH) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) $(HELM_ARGS) $(EXTRA_HELM_ARGS)
 
 	@$(MAKE) pg-vector
-
 	@$(MAKE) status
 	@$(MAKE) configure-pipeline-server
 	@$(MAKE) create-ingestion-pipeline
@@ -181,9 +177,8 @@ install-rag: namespace secrets
 	@$(MAKE) wait
 	oc exec minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc mb local/llama"
 
-install-%: namespace secrets
-	@$(MAKE) install-llm-service-$*
-	@$(MAKE) install-rag
+install-%: install-llm-service-% install-rag
+	@echo "Installed from target install-$*"
 
 .PHONY: install
 install: install-gpu
@@ -241,6 +236,7 @@ remove-secrets:
 
 	@echo "Removing pipeline secret"
 	oc delete secret -n $(NAMESPACE) rag-pipeline-secrets || echo "Secret not found or already removed."
+	rm -f secrets namespace
 
 .PHONY: remove-pvcs
 remove-pvcs:
