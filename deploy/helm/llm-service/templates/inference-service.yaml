@@ -1,6 +1,6 @@
 {{- $root := . }}
-{{- range $key, $model := $.Values.global.models }}
-{{- if and $model.enabled (eq $model.llamaStack.modelUrl.envValue "auto") }}
+{{- range $key, $model := $.Values.models }}
+{{- if $model.enabled }}
 ---
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService

@@ -1,4 +1,3 @@
-{{- $root := . }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -44,18 +43,6 @@ spec:
             {{- toYaml .Values.args | nindent 12 }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
-            {{- range $key, $model := $.Values.global.models }}
-            {{- if $model.enabled }}
-            - name: {{ $model.llamaStack.modelIdEnvName }}
-              value: {{ $model.id }}
-            - name: {{ $model.llamaStack.modelUrl.envName }}
-            {{- if eq $model.llamaStack.modelUrl.envValue "auto" }}
-              value: https://{{ $key }}.{{ $root.Release.Namespace }}.svc.cluster.local/v1
-            {{- else }}
-              value: {{ $model.llamaStack.modelUrl.envValue }}
-            {{- end }}
-            {{- end }}
-            {{- end }}
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
