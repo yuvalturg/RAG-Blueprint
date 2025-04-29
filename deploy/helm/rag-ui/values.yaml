@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: quay.io/ecosystem-appeng/llamastack-dist-ui
   pullPolicy: IfNotPresent
-  tag: 0.1.9
+  tag: 0.2.3
 
 imagePullSecrets: []
 nameOverride: ""
@@ -64,11 +64,15 @@ volumes:
       defaultMode: 420
       name: mcp-servers-config
     name: mcp-servers-config-volume
+  - emptyDir: {}
+    name: dot-streamlit
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
   - mountPath: /app-config
     name: mcp-servers-config-volume
+  - mountPath: /.streamlit
+    name: dot-streamlit
 # - name: foo
 #   mountPath: "/etc/foo"
 #   readOnly: true

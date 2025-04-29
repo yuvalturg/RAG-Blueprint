@@ -184,8 +184,8 @@ install-rag: namespace secrets install-mcp-servers
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
 
-install-%: install-llm-service-% install-rag
-	@echo "Installed from target install-$*"
+install-gpu: install-llm-service-gpu install-rag
+install-cpu: install-llm-service-cpu install-rag
 
 .PHONY: install
 install: install-gpu
