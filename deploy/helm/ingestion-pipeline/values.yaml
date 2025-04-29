@@ -1,9 +1,23 @@
-notebook:
-  image: image-registry.openshift-image-registry.svc:5000/redhat-ods-applications/s2i-generic-data-science-notebook:2024.2
-  repo: "https://github.com/tsisodia10/ingestion-pipeline.git"
+# options are [S3, GITHUB, URL]
+source: S3
+# embedding model to use for creating embeddings
+embedding_model: all-MiniLM-L6-v2
+# name of the vector db with version, pipeline will be created with pipeline_red_hat_openshift
+name: "demo-rag-vector-db"
+# version of the knowledgebase
+version: "1.0"
 
-kfp:
-  sdkImage: "quay.io/kubeflow/pipelines-sdk:2.1.0"
+S3:
+  access_key_id: access_key_id
+  secret_access_key: secret_access_key
+  bucket_name: my_bucket
+  endpoint_url: http://minio:9000
+  region: us-east-1
 
-pvc:
-  name: "pipeline-vol"
+GITHUB:
+  url: https://github.com/
+  path: /docs
+  token: auth_token
+  branch: ""
+
+URLS: []
