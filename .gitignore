@@ -176,3 +176,5 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 *.pyc
+deploy/helm/namespace
+deploy/helm/secrets
