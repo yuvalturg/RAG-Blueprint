@@ -22,7 +22,24 @@ MCP_SERVERS_CHART_PATH ?= mcp-servers
 MCP_SERVERS_RELEASE_NAME ?= mcp-servers
 INGESTION_PIPELINE_CHART_PATH ?= ingestion-pipeline
 INGESTION_PIPELINE_RELEASE_NAME ?= ingestion-pipeline
+CONFIGURE_PIPELINE_SERVER_CHART_PATH ?= configure-pipeline-server
+CONFIGURE_PIPELINE_SERVER_RELEASE_NAME ?= configure-pipeline-server
 TOLERATIONS_TEMPLATE=[{"key":"$(1)","effect":"NoSchedule","operator":"Exists"}]
+
+#ingestion pipeline configuration
+SOURCE ?= S3
+EMBEDDING_MODEL ?= all-MiniLM-L6-v2
+INGESTION_PIPELINE_NAME ?= demo-rag-vector-db
+INGESTION_PIPELINE_VERSION ?= 1.0
+ACCESS_KEY_ID ?= $(MINIO_USER)
+SECRET_ACCESS_KEY ?= $(MINIO_PASSWORD)
+BUCKET_NAME ?= llama
+ENDPOINT_URL ?= http://minio:9000
+REGION ?= us-east-1
+
+S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
+
+
 
 # Default target
 .PHONY: help
@@ -92,11 +109,28 @@ install-mcp-servers: namespace
 	@echo "Deploying Helm chart $(MCP_SERVERS_CHART_PATH) as release $(MCP_SERVERS_RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(MCP_SERVERS_RELEASE_NAME) $(MCP_SERVERS_CHART_PATH) -n $(NAMESPACE)
 
-.PHONY: install-ingestion-pipeline
-install-ingestion-pipeline: namespace
+.PHONY: configure-pipeline-server
+configure-pipeline-server: namespace
+	
+	@echo "Deploying Helm chart $(CONFIGURE_PIPELINE_SERVER_CHART_PATH) as release $(CONFIGURE_PIPELINE_SERVER_RELEASE_NAME) in namespace $(NAMESPACE)..."
+	helm install $(CONFIGURE_PIPELINE_SERVER_RELEASE_NAME) $(CONFIGURE_PIPELINE_SERVER_CHART_PATH) -n $(NAMESPACE)
+
+
+set_ingestion_args = \
+	$(if $(SOURCE),--set source='$(SOURCE)',) \
+	$(if $(EMBEDDING_MODEL),--set embedding_model='$(EMBEDDING_MODEL)',) \
+	$(if $(INGESTION_PIPELINE_NAME),--set name='$(INGESTION_PIPELINE_NAME)',) \
+	$(if $(INGESTION_PIPELINE_VERSION),--set version='$(INGESTION_PIPELINE_VERSION)',) \
+    $(if $(SOURCE),--set-json S3='$(call S3_TEMPLATE,$(ACCESS_KEY_ID),$(SECRET_ACCESS_KEY),$(BUCKET_NAME),$(ENDPOINT_URL),$(REGION))',) 
+
+.PHONY: create-ingestion-pipeline
+create-ingestion-pipeline: namespace
+
+	@$(eval INGESTION_ARGS := $(call set_ingestion_args))
 
 	@echo "Deploying Helm chart $(INGESTION_PIPELINE_CHART_PATH) as release $(INGESTION_PIPELINE_RELEASE_NAME) in namespace $(NAMESPACE)..."
-	helm install ingestion-pipeline $(INGESTION_PIPELINE_CHART_PATH) -n $(NAMESPACE)
+	helm install $(INGESTION_PIPELINE_RELEASE_NAME) $(INGESTION_PIPELINE_CHART_PATH) -n $(NAMESPACE) $(INGESTION_ARGS)
+
 
 list-models-%:
 	@helm template dummy-release $(LLM_SERVICE_CHART_PATH) --set _debugListModels=true --values $(LLM_SERVICE_CHART_PATH)/values-$*.yaml |grep ^model
@@ -140,7 +174,9 @@ install-rag: namespace secrets
 	@$(MAKE) pg-vector
 
 	@$(MAKE) status
-	@$(MAKE) install-ingestion-pipeline
+	@$(MAKE) configure-pipeline-server
+	@$(MAKE) create-ingestion-pipeline
+
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
 	oc exec minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc mb local/llama"
@@ -180,6 +216,10 @@ uninstall-ingestion-pipeline:
 
 	@echo "Uninstalling Helm release $(INGESTION_PIPELINE_RELEASE_NAME) from namespace $(NAMESPACE)..."
 	helm uninstall $(INGESTION_PIPELINE_RELEASE_NAME) -n $(NAMESPACE) || echo "Pipelines are not installed or already removed."
+
+	@echo "Uninstalling Helm release $(CONFIGURE_PIPELINE_SERVER_RELEASE_NAME) from namespace $(NAMESPACE)..."
+	helm uninstall $(CONFIGURE_PIPELINE_SERVER_RELEASE_NAME) -n $(NAMESPACE) || echo "Pipeline is not configured or already removed."
+
 
 .PHONY: uninstall-helm-release
 uninstall-helm-release:
