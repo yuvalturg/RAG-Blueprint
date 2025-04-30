@@ -1,5 +1,5 @@
 servingRuntime:
-  image: quay.io/ecosystem-appeng/vllm:openai-v0.8.3
+  image: quay.io/ecosystem-appeng/vllm:openai-v0.8.5
   recommendedAccelerators:
   - nvidia.com/gpu
 
@@ -51,6 +51,24 @@ models:
       args:
       - --max-model-len
       - "14336"
+
+  llama-3-1-8b-instruct:
+    id: meta-llama/Llama-3.1-8B-Instruct
+    enabled: false
+    inferenceService:
+      resources:
+        limits:
+          nvidia.com/gpu: "2"
+      args:
+      - --tensor-parallel-size
+      - "2"
+      - --max-model-len
+      - "30544"
+      - --enable-auto-tool-choice
+      - --chat-template
+      - /vllm-workspace/examples/tool_chat_template_llama3.2_json.jinja
+      - --tool-call-parser
+      - llama3_json
 
   llama-3-3-70b-instruct:
     id: meta-llama/Llama-3.3-70B-Instruct

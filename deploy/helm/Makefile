@@ -73,7 +73,7 @@ secrets:
 			oc create secret -n $(NAMESPACE) generic huggingface-secret --from-literal=HF_TOKEN="$$HF_TOKEN" --dry-run=client -o yaml | oc apply -f -'; \
 	}
 
-	@oc get secret -n $(NAMESPACE) generic pgvector 2>/dev/null || { \
+	@oc get secret -n $(NAMESPACE) pgvector 2>/dev/null || { \
 		echo "Creating pgvector secret"; \
 		oc create secret -n $(NAMESPACE) generic pgvector \
 			--from-literal=username="$(POSTGRES_USER)" \
