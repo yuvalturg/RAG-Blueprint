@@ -3,105 +3,148 @@ from kfp import Client
 from kfp import compiler
 
 @dsl.component(
-  base_image="python:3.10",
-  packages_to_install=[
-      "boto3",
-      "langchain-community",
-      "pdfminer.six",
-      "pymupdf",
-      "pypdf",
-      "tqdm",
-      "sentence-transformers",
-      "huggingface-hub",
-      "llama-stack-client==0.2.3",
-      "numpy",
-      "pdfplumber"
-  ])
+    base_image="python:3.10",
+    packages_to_install=[
+        "boto3",
+        "llama-stack-client==0.1.9", 
+        "docling",
+        "docling-core"
+    ])
 def fetch_from_minio_store_pgvector(llamastack_base_url: str):
-  import os
-  import boto3
-  import tempfile
-  import numpy as np
-  import pdfplumber
-  from llama_stack_client import LlamaStackClient, RAGDocument
+    import os
+    import boto3
+    import tempfile
+    from llama_stack_client import LlamaStackClient
+    from llama_stack_client.types import Document as LlamaStackDocument
+    
+    # Import docling libraries
+    from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+    from docling_core.types.doc.labels import DocItemLabel
 
-  temp_dir = tempfile.mkdtemp()
-  download_dir = os.path.join(temp_dir, "source_repo")
-  os.makedirs(download_dir, exist_ok=True)
+    source = os.environ.get('SOURCE')
+    name = os.environ.get('NAME')
+    version = os.environ.get('VERSION')
+    embedding_model = os.environ.get('EMBEDDING_MODEL')
 
-  source = os.environ.get('SOURCE')
-  name = os.environ.get('NAME')
-  version = os.environ.get('VERSION')
-  embedding_model = os.environ.get('EMBEDDING_MODEL')
-  
-  vector_db_name = f"{name}-v{version}".replace(" ", "-").replace(".", "-")
+    vector_db_name = f"{name}-v{version}".replace(" ", "-").replace(".", "-")
 
-  # S3 Config
-  bucket_name = os.environ.get('BUCKET_NAME')
-  minio_endpoint = os.environ.get('ENDPOINT_URL')
-  minio_access_key = os.environ.get('ACCESS_KEY_ID')
-  minio_secret_key = os.environ.get('SECRET_ACCESS_KEY')
-  region_name = os.environ.get('REGION')
+    # S3 Config
+    bucket_name = os.environ.get('BUCKET_NAME')
+    minio_endpoint = os.environ.get('ENDPOINT_URL')
+    minio_access_key = os.environ.get('ACCESS_KEY_ID')
+    minio_secret_key = os.environ.get('SECRET_ACCESS_KEY')
+    region_name = os.environ.get('REGION')
 
-  s3 = boto3.client(
-      "s3",
-      endpoint_url=minio_endpoint,
-      aws_access_key_id=minio_access_key,
-      aws_secret_access_key=minio_secret_key,
-      region_name = region_name
-  )
-  
-  paginator = s3.get_paginator("list_objects_v2")
-  pages = paginator.paginate(Bucket=bucket_name)
+    # Step 1: Download files from MinIO
+    temp_dir = tempfile.mkdtemp()
+    download_dir = os.path.join(temp_dir, "source_repo")
+    os.makedirs(download_dir, exist_ok=True)
 
-  for page in pages:
-      for obj in page.get("Contents", []):
-          key = obj["Key"]
-          file_path = os.path.join(download_dir, os.path.basename(key))
-          s3.download_file(bucket_name, key, file_path)
+    # Connect to MinIO
+    print(f"Connecting to MinIO at {minio_endpoint}")
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=minio_endpoint,
+        aws_access_key_id=minio_access_key,
+        aws_secret_access_key=minio_secret_key,
+        verify=False
+    )
 
-  rag_documents = []
-  rng = np.random.default_rng()
-  for filename in os.listdir(download_dir):
-      if not filename.endswith(".pdf"):
-          continue
-      full_path = os.path.join(download_dir, filename)
-      full_text = ""
-      with pdfplumber.open(full_path) as pdf:
-          for page in pdf.pages:
-              page_text = page.extract_text()
-              if page_text:
-                  full_text += page_text
-      full_text = full_text.encode("utf-8", "ignore").decode("utf-8").replace("\x00", "")
-      if not full_text.strip():
-          continue
-      rag_documents.append(
-          RAGDocument(
-              document_id=f"pdf-{rng.integers(1000, 9999)}",
-              content=full_text,
-              mime_type="application/pdf",
-              metadata={"source": "rag-pipeline", "filename": filename}
-          )
-      )
+    # List and download objects
+    paginator = s3.get_paginator("list_objects_v2")
+    pages = paginator.paginate(Bucket=bucket_name)
 
-  client = LlamaStackClient(base_url=llamastack_base_url)
-  print("Registering db")
-  client.vector_dbs.register(
-      vector_db_id=vector_db_name,
-      embedding_model=embedding_model,
-      embedding_dimension=384,
-      provider_id="pgvector",
-  )
+    print(f"Downloading files from bucket: {bucket_name}")
+    downloaded_files = []
+    for page in pages:
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            file_path = os.path.join(download_dir, os.path.basename(key))
+            print(f"Downloading: {key} -> {file_path}")
+            s3.download_file(bucket_name, key, file_path)
+            downloaded_files.append(file_path)
+    
+    print(f"Downloaded {len(downloaded_files)} files to {download_dir}")
+    
+    # Step 2: Process the PDFs with docling
+    # Setup docling components
+    pipeline_options = PdfPipelineOptions()
+    pipeline_options.generate_picture_images = True
+    converter = DocumentConverter(
+                format_options={
+                    InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+                }
+    )
+    chunker = HybridChunker()
+    llama_documents = []
+    i = 0
+    
+    # Process each file with docling (chunking)
+    for file_path in downloaded_files:
+        if not file_path.endswith(".pdf"):
+            print(f"Skipping non-PDF file: {file_path}")
+            continue
+            
+        print(f"Processing {file_path} with docling...")
+        try:
+            docling_doc = converter.convert(source=file_path).document
+            chunks = chunker.chunk(docling_doc)
+            chunk_count = 0
 
-  try:
-      client.tool_runtime.rag_tool.insert(
-          documents=rag_documents,
-          vector_db_id=vector_db_name,
-          chunk_size_in_tokens=512,
-      )
-  except Exception as e:
-      print("Embedding insert failed:", e)
+            for chunk in chunks:
+                if any(
+                    c.label in [DocItemLabel.TEXT, DocItemLabel.PARAGRAPH]
+                    for c in chunk.meta.doc_items
+                ):
+                    i += 1
+                    chunk_count += 1
+                    llama_documents.append(
+                        LlamaStackDocument(
+                            document_id=f"doc-{i}",
+                            content=chunk.text,
+                            mime_type="text/plain",
+                            metadata={"source": os.path.basename(file_path)},
+                        )
+                    )
+            
+            print(f"Created {chunk_count} chunks from {file_path}")
+            
+        except Exception as e:
+            error_message = str(e)
+            print(f"Error processing {file_path}: {error_message}")
 
+    total_chunks = len(llama_documents)
+    print(f"Total valid chunks prepared: {total_chunks}")
+    
+    # Step 3: Register vector database and store chunks with embeddings
+    client = LlamaStackClient(base_url=llamastack_base_url)
+    print("Registering db")
+    try:
+        client.vector_dbs.register(
+            vector_db_id=vector_db_name,
+            embedding_model=embedding_model,
+            embedding_dimension=384,
+            provider_id="pgvector",
+        )
+        print("Vector DB registered successfully")
+    except Exception as e:
+        error_message = str(e)
+        print(f"Failed to register vector DB: {error_message}")
+        print("Continuing with insertion...")
+
+    try:
+        print(f"Inserting {total_chunks} chunks into vector database")
+        client.tool_runtime.rag_tool.insert(
+            documents=llama_documents,
+            vector_db_id=vector_db_name,
+            chunk_size_in_tokens=512,
+        )
+        print("Documents successfully inserted into the vector DB")
+    except Exception as e:
+        print("Embedding insert failed:", e)
 
 @dsl.pipeline(name="fetch-and-store-pipeline")
 def full_pipeline():
