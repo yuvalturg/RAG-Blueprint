@@ -9,7 +9,7 @@ from typing import Optional
 
 from llama_stack_client import LlamaStackClient
 
-from modules.register_mcp_servers import RegisterMCPServers
+from llama_stack.distribution.ui.modules.register_mcp_servers import RegisterMCPServers
 
 
 class LlamaStackApi:

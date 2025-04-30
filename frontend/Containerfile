@@ -7,8 +7,9 @@ COPY . /app/
 RUN /usr/local/bin/python -m pip install --upgrade pip && \
     /usr/local/bin/pip3 install -r requirements.txt
 
-RUN cp -a /app/* $(python -c "import site; print(site.getsitepackages()[0])")/llama_stack/distribution/ui
+# Make sure we run the right ui, and not the one provided by llama_stack
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 EXPOSE 8501
 
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+ENTRYPOINT ["streamlit", "run", "/app/llama_stack/distribution/ui/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
