@@ -93,8 +93,3 @@ models:
       - llama3_json
       - --max-model-len
       - “30544"
-    llamaStack:
-      modelIdEnvName: LLAMA_INSTRUCT1B_QUANT_MODEL
-      modelUrl:
-        envName: LLAMA_INSTRUCT1B_QUANT_VLLM_URL
-        envValue: auto
