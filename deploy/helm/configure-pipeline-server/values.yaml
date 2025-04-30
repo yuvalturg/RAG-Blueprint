@@ -19,3 +19,5 @@ pvc:
 # For notebook
 embedding_model: all-MiniLM-L6-v2
 name: rag-vector-db
+version: 1.0
+

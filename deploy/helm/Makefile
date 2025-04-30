@@ -2,7 +2,7 @@
 # Replaces the original deploy.sh script with additional uninstall functionality
 
 ifeq ($(NAMESPACE),)
-ifeq (,$(filter list-models-% help,$(MAKECMDGOALS)))
+ifeq (,$(filter list-models% help,$(MAKECMDGOALS)))
 $(error NAMESPACE is not set)
 endif
 endif
@@ -15,7 +15,6 @@ MINIO_USER ?= minio_rag_user
 MINIO_PASSWORD ?= minio_rag_password
 RELEASE_NAME ?= rag
 CHART_PATH ?= rag-ui
-HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
 LLM_SERVICE_CHART_PATH ?= llm-service
 LLM_SERVICE_RELEASE_NAME ?= llm-service
 MCP_SERVERS_CHART_PATH ?= mcp-servers
@@ -33,12 +32,11 @@ INGESTION_PIPELINE_NAME ?= demo-rag-vector-db
 INGESTION_PIPELINE_VERSION ?= 1.0
 ACCESS_KEY_ID ?= $(MINIO_USER)
 SECRET_ACCESS_KEY ?= $(MINIO_PASSWORD)
-BUCKET_NAME ?= llama
+BUCKET_NAME ?= documents
 ENDPOINT_URL ?= http://minio:9000
 REGION ?= us-east-1
 
 S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
-
 
 
 # Default target
@@ -64,31 +62,35 @@ help:
 	@echo "  {SAFETY,LLM}_TOLERATION  - Model pod toleration"
 
 # Create namespace and deploy
-.PHONY: namespace
 namespace:
+	oc create namespace $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false ||:
+	oc project $(NAMESPACE) ||:
 
-	@echo "Creating namespace $(NAMESPACE)..."
-	oc create namespace $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false || oc project $(NAMESPACE) ||:
-
-.PHONY: secrets
 secrets:
-	@echo "Creating Hugging Face secret..."
-	oc create secret -n $(NAMESPACE) generic huggingface-secret --from-literal=HF_TOKEN="$(HF_TOKEN)" --dry-run=client -o yaml | oc apply -f -
+	@oc get secret -n $(NAMESPACE) huggingface-secret 2>/dev/null || { \
+		echo "Creating Hugging Face secret..."; \
+		bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN; \
+			oc create secret -n $(NAMESPACE) generic huggingface-secret --from-literal=HF_TOKEN="$$HF_TOKEN" --dry-run=client -o yaml | oc apply -f -'; \
+	}
 
-	@echo "Creating pgvector secret"
-	oc create secret -n $(NAMESPACE) generic pgvector \
-		--from-literal=username="$(POSTGRES_USER)" \
-		--from-literal=password="$(POSTGRES_PASSWORD)" \
-		--from-literal=host=pgvector \
-		--from-literal=port=5432 \
-		--from-literal=dbname="$(POSTGRES_DBNAME)" || echo "PGVector secret not created"
+	@oc get secret -n $(NAMESPACE) generic pgvector 2>/dev/null || { \
+		echo "Creating pgvector secret"; \
+		oc create secret -n $(NAMESPACE) generic pgvector \
+			--from-literal=username="$(POSTGRES_USER)" \
+			--from-literal=password="$(POSTGRES_PASSWORD)" \
+			--from-literal=host=pgvector \
+			--from-literal=port=5432 \
+			--from-literal=dbname="$(POSTGRES_DBNAME)"; \
+	}
 
-	@echo "Creating minio secret"
-	oc create secret -n $(NAMESPACE) generic minio \
-       --from-literal=username=$(MINIO_USER) \
-       --from-literal=password=$(MINIO_PASSWORD) \
-       --from-literal=host=minio \
-       --from-literal=port=9000 || echo "Minio secret not created"
+	@oc get secret -n $(NAMESPACE) minio 2>/dev/null || { \
+		echo "Creating minio secret"; \
+		oc create secret -n $(NAMESPACE) generic minio \
+			--from-literal=username=$(MINIO_USER) \
+			--from-literal=password=$(MINIO_PASSWORD) \
+			--from-literal=host=minio \
+			--from-literal=port=9000; \
+	}
 
 	@echo "Annotating secrets..."
 	oc annotate secret huggingface-secret -n $(NAMESPACE) meta.helm.sh/release-name=$(RELEASE_NAME) meta.helm.sh/release-namespace=$(NAMESPACE) --overwrite
@@ -99,9 +101,9 @@ secrets:
 pg-vector:
 
 	@echo "Bootstrapping pgvector database"
-	oc rollout status sts/pgvector
-	oc exec -it sts/pgvector -- psql -U postgres -c "CREATE DATABASE $(POSTGRES_DBNAME);"
-	oc exec -it sts/pgvector -- psql -U postgres -d $(POSTGRES_DBNAME) -c "CREATE EXTENSION VECTOR;"
+	oc rollout -n $(NAMESPACE) status sts/pgvector
+	oc exec -itn $(NAMESPACE) sts/pgvector -- psql -U postgres -c "CREATE DATABASE $(POSTGRES_DBNAME);" ||:
+	oc exec -itn $(NAMESPACE) sts/pgvector -- psql -U postgres -d $(POSTGRES_DBNAME) -c "CREATE EXTENSION VECTOR;" ||:
 
 .PHONY: install-mcp-servers
 install-mcp-servers: namespace
@@ -111,9 +113,9 @@ install-mcp-servers: namespace
 
 .PHONY: configure-pipeline-server
 configure-pipeline-server: namespace
-	
+
 	@echo "Deploying Helm chart $(CONFIGURE_PIPELINE_SERVER_CHART_PATH) as release $(CONFIGURE_PIPELINE_SERVER_RELEASE_NAME) in namespace $(NAMESPACE)..."
-	helm install $(CONFIGURE_PIPELINE_SERVER_RELEASE_NAME) $(CONFIGURE_PIPELINE_SERVER_CHART_PATH) -n $(NAMESPACE)
+	helm upgrade --install $(CONFIGURE_PIPELINE_SERVER_RELEASE_NAME) $(CONFIGURE_PIPELINE_SERVER_CHART_PATH) -n $(NAMESPACE)
 
 
 set_ingestion_args = \
@@ -121,7 +123,7 @@ set_ingestion_args = \
 	$(if $(EMBEDDING_MODEL),--set embedding_model='$(EMBEDDING_MODEL)',) \
 	$(if $(INGESTION_PIPELINE_NAME),--set name='$(INGESTION_PIPELINE_NAME)',) \
 	$(if $(INGESTION_PIPELINE_VERSION),--set version='$(INGESTION_PIPELINE_VERSION)',) \
-    $(if $(SOURCE),--set-json S3='$(call S3_TEMPLATE,$(ACCESS_KEY_ID),$(SECRET_ACCESS_KEY),$(BUCKET_NAME),$(ENDPOINT_URL),$(REGION))',) 
+    $(if $(SOURCE),--set-json S3='$(call S3_TEMPLATE,$(ACCESS_KEY_ID),$(SECRET_ACCESS_KEY),$(BUCKET_NAME),$(ENDPOINT_URL),$(REGION))',)
 
 .PHONY: create-ingestion-pipeline
 create-ingestion-pipeline: namespace
@@ -129,8 +131,7 @@ create-ingestion-pipeline: namespace
 	@$(eval INGESTION_ARGS := $(call set_ingestion_args))
 
 	@echo "Deploying Helm chart $(INGESTION_PIPELINE_CHART_PATH) as release $(INGESTION_PIPELINE_RELEASE_NAME) in namespace $(NAMESPACE)..."
-	helm install $(INGESTION_PIPELINE_RELEASE_NAME) $(INGESTION_PIPELINE_CHART_PATH) -n $(NAMESPACE) $(INGESTION_ARGS)
-
+	helm upgrade --install $(INGESTION_PIPELINE_RELEASE_NAME) $(INGESTION_PIPELINE_CHART_PATH) -n $(NAMESPACE) $(INGESTION_ARGS) ||:
 
 list-models-%:
 	@helm template dummy-release $(LLM_SERVICE_CHART_PATH) --set _debugListModels=true --values $(LLM_SERVICE_CHART_PATH)/values-$*.yaml |grep ^model
@@ -147,8 +148,10 @@ helm_llm_service_args = \
 install-llm-service-%: namespace secrets
 	@$(eval HELM_ARGS := $(call helm_llm_service_args))
 
+	@echo "Deploying Helm chart $(LLM_SERVICE_CHART_PATH) as release $(LLM_SERVICE_RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(LLM_SERVICE_RELEASE_NAME) $(LLM_SERVICE_CHART_PATH) -n $(NAMESPACE) --values $(LLM_SERVICE_CHART_PATH)/values-$*.yaml \
 	$(HELM_ARGS) $(EXTRA_HELM_ARGS)
+	@echo "Waiting for model services to deploy. It will take around 10-15 minutes depending on the size of the model..."
 	oc wait -n $(NAMESPACE) --for=condition=Ready --timeout=60m inferenceservice --all ||:
 
 .PHONY: install-llm-service
@@ -162,16 +165,21 @@ helm_llama_stack_args = \
     $(if $(LLM_API_TOKEN),--set-json llama-stack.models.$(LLM).apiToken='"$(LLM_API_TOKEN)"',) \
     $(if $(SAFETY_API_TOKEN),--set-json llama-stack.models.$(SAFETY).apiToken='"$(SAFETY_API_TOKEN)"',) \
 
-.PHONY: install-rag
-install-rag: namespace secrets
-	@$(eval HELM_ARGS := $(call helm_llama_stack_args))
+.PHONY: create-minio-bucket
+create-minio-bucket:
+	oc wait -n $(NAMESPACE) --for=condition=Ready pod/minio-0 --timeout=300s
+	sleep 5
+	oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc mb local/$(BUCKET_NAME)" ||:
 
-	@$(MAKE) install-mcp-servers
+.PHONY: install-rag
+install-rag: namespace secrets install-mcp-servers
+	@$(eval HELM_ARGS := $(call helm_llama_stack_args))
 
 	@echo "Deploying Helm chart $(CHART_PATH) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) $(HELM_ARGS) $(EXTRA_HELM_ARGS)
 
 	@$(MAKE) pg-vector
+	@$(MAKE) create-minio-bucket
 
 	@$(MAKE) status
 	@$(MAKE) configure-pipeline-server
@@ -179,11 +187,9 @@ install-rag: namespace secrets
 
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
-	oc exec minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc mb local/llama"
 
-install-%: namespace secrets
-	@$(MAKE) install-llm-service-$*
-	@$(MAKE) install-rag
+install-gpu: install-llm-service-gpu install-rag
+install-cpu: install-llm-service-cpu install-rag
 
 .PHONY: install
 install: install-gpu
@@ -192,6 +198,8 @@ install: install-gpu
 .PHONY: uninstall
 uninstall: uninstall-helm-release uninstall-mcp-servers uninstall-ingestion-pipeline uninstall-llm-service remove-secrets remove-pvcs
 
+	@echo "Deleting remaining pods in namespace $(NAMESPACE)"
+	oc delete pods -n $(NAMESPACE) --all
 	@echo "Checking for any remaining resources in namespace $(NAMESPACE)..."
 	@echo "If you want to completely remove the namespace, run: oc delete project $(NAMESPACE)"
 
@@ -203,7 +211,6 @@ uninstall-llm-service:
 
 	@echo "Uninstalling Helm release $(LLM_SERVICE_RELEASE_NAME) from namespace $(NAMESPACE)..."
 	helm uninstall $(LLM_SERVICE_RELEASE_NAME) -n $(NAMESPACE) || echo "LLM services are not installed or already removed."
-
 
 .PHONY: uninstall-mcp-servers
 uninstall-mcp-servers:
@@ -246,8 +253,7 @@ remove-secrets:
 remove-pvcs:
 
 	@echo "Removing pgvector and minio PVCs"
-	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^pg-data")
-	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^minio-data")
+	oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name | grep -E '^(pg|minio)-data' | xargs oc delete pvc -n $(NAMESPACE) ||:
 
 # Check deployment status
 .PHONY: status
@@ -270,17 +276,24 @@ status:
 # Wait for all pods to be ready
 .PHONY: wait
 wait:
-	@echo "Waiting for all pods to be ready in namespace $(NAMESPACE)..."
-	oc wait --for=condition=Ready pods --all -n $(NAMESPACE) --timeout=30m
-	@echo "All pods are now ready!"
 
-	@echo "Checking deployment health..."
-	@if oc get pods -n $(NAMESPACE) | grep -E 'CrashLoopBackOff|Error|Failed|Evicted'; then \
-		echo "WARNING: Some pods are in an unhealthy state!"; \
-		exit 1; \
-	else \
-		echo "All deployments appear to be healthy."; \
-	fi
+	@echo "Delete failed jobs in namespace $(NAMESPACE)..."
+	oc get pods -n $(NAMESPACE) --field-selector=status.phase=Failed -o jsonpath='{range .items[?(@.metadata.ownerReferences[0].kind=="Job")]}{.metadata.namespace}{";"}{.metadata.name}{"\n"}{end}' | while IFS=";" read ns pod; do \
+	  echo "Deleting FAILED pod $$pod from namespace $$ns"; \
+	  oc delete pod "$$pod" -n "$$ns"; \
+	done
+
+	@echo "Waiting for all pods to be ready in namespace $(NAMESPACE)..."
+	@end=$$(($$(date +%s)+60)); \
+	while [ $$(date +%s) -lt $$end ]; do \
+	  not_ready=$$(kubectl get pods --no-headers | grep -vE 'Running|Succeeded|Completed'); \
+	  if [ -z "$$not_ready" ]; then \
+	    echo "All pods are Ready or Completed."; \
+		break; \
+	  fi; \
+	  sleep 2; \
+	done; \
+	echo "Timeout: Some pods are not Ready or Completed."; \
 
 	@echo "Verifying routes are accessible..."
 	@for route in $(oc get routes -n $(NAMESPACE) -o name); do \

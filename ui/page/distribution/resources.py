@@ -6,12 +6,12 @@
 
 from streamlit_option_menu import option_menu
 
-from page.distribution.datasets import datasets
-from page.distribution.eval_tasks import benchmarks
-from page.distribution.models import models
-from page.distribution.scoring_functions import scoring_functions
-from page.distribution.shields import shields
-from page.distribution.vector_dbs import vector_dbs
+from llama_stack.distribution.ui.page.distribution.datasets import datasets
+from llama_stack.distribution.ui.page.distribution.eval_tasks import benchmarks
+from llama_stack.distribution.ui.page.distribution.models import models
+from llama_stack.distribution.ui.page.distribution.scoring_functions import scoring_functions
+from llama_stack.distribution.ui.page.distribution.shields import shields
+from llama_stack.distribution.ui.page.distribution.vector_dbs import vector_dbs
 
 
 def resources_page():

@@ -5,11 +5,11 @@
 Retrieval-Augmented Generation (RAG) enhances Large Language Models (LLMs) by retrieving relevant external knowledge to improve accuracy, reduce hallucinations, and support domain-specific conversations. This architecture uses:
 
 - **OpenShift AI** for orchestration
-- **LLaMA Stack** for standardizing the core building blocks thaandt simplifying AI application development.
+- **LLaMA Stack** for standardizing the core building blocks and simplifying AI application development
 - **PGVector** for semantic search
 - **Kubeflow Pipelines** for data ingestion
 - **Streamlit UI** for a user-friendly chatbot interface
-  
+
 
 ---
 
@@ -23,15 +23,15 @@ Retrieval-Augmented Generation (RAG) enhances Large Language Models (LLMs) by re
 
 ## Features
 
-- Multi-Modal Data Ingestion for ingesting unstructured data.
-- Preprocessing pipelines for cleaning, chunking, and embedding generation using language models.
+- Multi-Modal Data Ingestion for ingesting unstructured data
+- Preprocessing pipelines for cleaning, chunking, and embedding generation using language models
 - Vector Store Integration to store dense embeddings
-- Integrates with LLMs to generate responses based on retrieved documents.
-- Streamlit based web application.
-- Runs on OpenShift AI for container orchestration and GPU acceleration.
+- Integrates with LLMs to generate responses based on retrieved documents
+- Streamlit based web application
+- Runs on OpenShift AI for container orchestration and GPU acceleration
 - Llama Stack to standardize the core building blocks and simplify AI application development
-- Safety Guardrail to block harmful request / response.
-- Integration with MCP servers.
+- Safety Guardrail to block harmful request / response
+- Integration with MCP servers
 
 ---
 
@@ -43,7 +43,7 @@ End users can upload files through a UI and receive contextual answers based on 
 
 ### 2. Pre-Ingestion
 
-Enterprise documents are pre-processed and ingested into the system for later querying using via OpenShift AI/Kubeflow Pipelines.
+Enterprise documents are pre-processed and ingested into the system for later querying via OpenShift AI/Kubeflow Pipelines.
 
 ---
 
@@ -81,36 +81,35 @@ The kickstart supports two modes of deployments
 - OpenShift Cluster 4.16+ with OpenShift AI
 - OpenShift Client CLI - [oc](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/cli_tools/openshift-cli-oc#installing-openshift-cli)
 - Helm CLI - helm
-- (Optional) huggingface-cli 
+- [huggingface-cli](https://huggingface.co/docs/huggingface_hub/guides/cli) (Optional)
 - 2 GPUs, each with 24GB of VRAM, one for LLM and the another for Safety Model, refer to the chart below
 - [Hugging Face Token](https://huggingface.co/settings/tokens)
 - Access to [Meta Llama](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct/) model.
 - Access to [Meta Llama Guard](https://huggingface.co/meta-llama/Llama-Guard-3-8B/) model.
-- Some of the example scripts use `jq` a JSON parsing utility which you can acquire via `brew install jq` 
+- Some of the example scripts use `jq` a JSON parsing utility which you can acquire via `brew install jq`
 
 ### Supported Models
 
 | Function    | Model Name                             | GPU         | AWS
 |-------------|----------------------------------------|-------------|-------------
-| Embedding   | `all-MiniLM-L6-v2`                     | CPU or GPU  | 
+| Embedding   | `all-MiniLM-L6-v2`                     | CPU or GPU  |
 | Safety      | `meta-llama/Llama-Guard-3-8B`          | L4          | g6.2xlarge
 | Generation  | `meta-llama/Llama-3.2-3B-Instruct`     | L4          | g6.2xlarge
+| Generation  | `meta-llama/Meta-Llama-3-70B-Instruct` | A100 x2     | p4d.24xlarge
 
 Note: 70B model is NOT required for initial testing of this example
 
-| Generation  | `meta-llama/Meta-Llama-3-70B-Instruct` | A100 x2     | p4d.24xlarge
-
 ---
 
-#### Installation steps 
+#### Installation steps
 
-1. git clone so you have a working copy
+1. Clone the repo so you have a working copy
 
 ```bash
 git clone https://github.com/RHEcosystemAppEng/RAG-Blueprint
 ```
 
-2. oc login
+2. Login to your OpenShift Cluster
 
 ```bash
 oc login --server="<cluster-api-endpoint>" --token="sha256~XYZ"
@@ -137,13 +136,13 @@ oc get nodes -o json | jq -r '
 '
 ```
 
-Find one of those GPU-enabled worker nodes, assumes the are configured the same
+Find one of those GPU-enabled worker nodes, assuming they are configured the same
 
 ```bash
 NODE=$(oc get nodes -l node-role.kubernetes.io/worker-gpu --no-headers | head -n 1 | awk '{print $1}')
 ```
 
-Extract the taints section of worker node
+Extract the taints section of the worker node
 
 ```bash
 oc get node $NODE -o json | jq '.spec.taints'
@@ -161,7 +160,7 @@ oc get node $NODE -o json | jq '.spec.taints'
 
 You can work with your OpenShift cluster admin team to determine what labels and taints identify GPU-enabled worker nodes.  It is also possible that all your worker nodes have GPUs therefore have no distinguishing taint.
 
-4. Navigate to Helm deploy directory:
+4. Navigate to Helm deploy directory
 
 ```bash
 cd deploy/helm
@@ -178,10 +177,10 @@ The above command will list the models to use in the next command
 ```bash
 (Output)
 model: llama-3-2-3b-instruct
-model: llama-guard-3-8b (shield) 
+model: llama-guard-3-8b (shield)
 ```
 
-6. Install via make:
+6. Install via make
 
 Use the taint key from above as the `LLM_TOLERATION` and `SAFETY_TOLERATION`
 
@@ -199,12 +198,12 @@ make install NAMESPACE=llama-stack-rag LLM=llama-3-2-3b-instruct SAFETY=llama-gu
 
 When prompted, enter your **[Hugging Face Token]((https://huggingface.co/settings/tokens))**.
 
-This process often takes 11 to 30 minutes
+Note: This process often takes 11 to 30 minutes
 
-7. Watch/Monitor   
+7. Watch/Monitor
 
 ```bash
-oc get pods -n llama-stack-rag 
+oc get pods -n llama-stack-rag
 ```
 
 ```
@@ -228,8 +227,10 @@ oc get svc -n llama-stack-rag
 oc get routes -n llama-stack-rag
 ```
 
-9. Open RAG UI
-   
+### Using the RAG UI
+
+1. Get the route url for the application
+
 ```bash
 URL=http://$(oc get routes -l app.kubernetes.io/name=rag-ui -o jsonpath="{range .items[*]}{.status.ingress[0].host}{end}")
 open $URL
@@ -237,23 +238,21 @@ open $URL
 
 ![RAG UI Main](./docs/img/rag-ui-1.png)
 
-Click on RAG
+2. Click on RAG
 
-Drag and drop a PDF
+3. Upload your document
 
-Create Vector Database
+4. Create a Vector Database
 
 ![RAG UI Main 2](./docs/img/rag-ui-2.png)
 
-Look for `Vector database created successfully!` 
-   
-Select a Vector Database of `rag_vector_db`
+5. Once you've recieved `Vector database created successfully!`, select the Vector Database you created
 
-Ask a question of your document
+6. Ask a question pertaining to your document!
 
 Refer to the [post installation](docs/post_installation.md) document for document ingestion.
 
-10. Uninstall:
+10. Uninstalling the RAG application
 
 ```bash
 make uninstall NAMESPACE=llama-stack-rag
@@ -266,38 +265,38 @@ oc delete project llama-stack-rag
 
 ## Local Development Setup
 
-From the root of the project, switch to the ui directory
+1. From the root of the project, switch to the ui directory
 
 ```bash
 cd ui
 ```
 
-Python based development often works better with a virtual environment
+2. Create a virtual environment (Python based development often works better with a virtual environment)
 
 ```bash
 python3.11 -m venv venv
 source venv/bin/activate
 ```
 
-Download dependencies
+3. Download the dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-The application looks for a Llama Stack server running on 8321.  Port forward the service inside of OpenShift to the local machine on port 8321.
+4. Port forward the service inside of OpenShift to the local machine on port 8321
 
 ```bash
 oc port-forward svc/llamastack 8321:8321
 ```
 
+5. Launch the application and opens a browser tab with the `streamlit` command
+
 ```bash
 streamlit run app.py
 ```
 
-The `streamlit` command launches the application and opens a browser tab.
-
-Give the weather MCP-based tool a test with a US-based city by toggling on "mcp::weather" via a click for real-time weather information.
+6. Give the weather MCP-based tool a test with a US-based city by toggling on "mcp::weather" via a click for real-time weather information
 
 ![RAG UI MCP weather](./docs/img/rag-ui-3.png)
 
@@ -305,7 +304,7 @@ Give the weather MCP-based tool a test with a US-based city by toggling on "mcp:
 
 Make changes to app.py
 
-Deployment after making changes requires a rebuild of the container image using either `docker` or `podman`.  Replace `docker.io` with your target container registry such as `quay.io`. 
+Deployment after making changes requires a rebuild of the container image using either `docker` or `podman`.  Replace `docker.io` with your target container registry such as `quay.io`.
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 -t docker.io/burrsutter/rag-ui:v1 -f Containerfile .
@@ -315,7 +314,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t docker.io/burrsutter/r
 docker push docker.io/burrsutter/rag-ui:v1
 ```
 
-And modification to `deploy/helm/rag-ui/values.yaml`
+Add modification to `deploy/helm/rag-ui/values.yaml`
 
 ```
 image:
@@ -345,23 +344,23 @@ meta-llama/Llama-Guard-3-8B
 all-MiniLM-L6-v2
 ```
 
-The "Guard" model is the one appropriate for adding as a Llama Stack Shield
+The "Guard" model is the one appropriate for adding as a Llama Stack Shield.
 
-From within the `ui` directory or whichever one has the `venv` with the dependencies
+From within the `ui` directory or whichever one has the `venv` with the dependencies:
 
-Register the shield
+- Register the shield
 
 ```
 python ../shields/register-shield.py
 ```
 
-List shields
+- List shields
 
 ```
 python ../shields/list-shields.py
 ```
 
-Test the shield
+- Test the shield
 
 ```
 python ../shields/test-shield.py
@@ -378,4 +377,3 @@ inference> The friendly stranger smiled and said hello as she approached the tab
 'response: <generator object Agent._create_turn_streaming at 0x1052ed000>'
 shield_call> {'violation_type': 'S1'} I can't answer that. Can I help with something else?
 ```
-
