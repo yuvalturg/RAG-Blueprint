@@ -15,7 +15,6 @@ MINIO_USER ?= minio_rag_user
 MINIO_PASSWORD ?= minio_rag_password
 RELEASE_NAME ?= rag
 CHART_PATH ?= rag-ui
-HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
 LLM_SERVICE_CHART_PATH ?= llm-service
 LLM_SERVICE_RELEASE_NAME ?= llm-service
 MCP_SERVERS_CHART_PATH ?= mcp-servers
@@ -64,42 +63,47 @@ help:
 
 # Create namespace and deploy
 namespace:
-	@echo "Creating namespace $(NAMESPACE)..."
-	oc create namespace $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false || oc project $(NAMESPACE) ||:
-	@touch namespace
+	oc create namespace $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false ||:
+	oc project $(NAMESPACE) ||:
 
 secrets:
-	@echo "Creating Hugging Face secret..."
-	oc create secret -n $(NAMESPACE) generic huggingface-secret --from-literal=HF_TOKEN="$(HF_TOKEN)" --dry-run=client -o yaml | oc apply -f -
+	@oc get secret -n $(NAMESPACE) huggingface-secret 2>/dev/null || { \
+		echo "Creating Hugging Face secret..."; \
+		bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN; \
+			oc create secret -n $(NAMESPACE) generic huggingface-secret --from-literal=HF_TOKEN="$$HF_TOKEN" --dry-run=client -o yaml | oc apply -f -'; \
+	}
 
-	@echo "Creating pgvector secret"
-	oc create secret -n $(NAMESPACE) generic pgvector \
-		--from-literal=username="$(POSTGRES_USER)" \
-		--from-literal=password="$(POSTGRES_PASSWORD)" \
-		--from-literal=host=pgvector \
-		--from-literal=port=5432 \
-		--from-literal=dbname="$(POSTGRES_DBNAME)" || echo "PGVector secret not created"
+	@oc get secret -n $(NAMESPACE) generic pgvector 2>/dev/null || { \
+		echo "Creating pgvector secret"; \
+		oc create secret -n $(NAMESPACE) generic pgvector \
+			--from-literal=username="$(POSTGRES_USER)" \
+			--from-literal=password="$(POSTGRES_PASSWORD)" \
+			--from-literal=host=pgvector \
+			--from-literal=port=5432 \
+			--from-literal=dbname="$(POSTGRES_DBNAME)"; \
+	}
 
-	@echo "Creating minio secret"
-	oc create secret -n $(NAMESPACE) generic minio \
-       --from-literal=username=$(MINIO_USER) \
-       --from-literal=password=$(MINIO_PASSWORD) \
-       --from-literal=host=minio \
-       --from-literal=port=9000 || echo "Minio secret not created"
+	@oc get secret -n $(NAMESPACE) minio 2>/dev/null || { \
+		echo "Creating minio secret"; \
+		oc create secret -n $(NAMESPACE) generic minio \
+			--from-literal=username=$(MINIO_USER) \
+			--from-literal=password=$(MINIO_PASSWORD) \
+			--from-literal=host=minio \
+			--from-literal=port=9000; \
+	}
 
 	@echo "Annotating secrets..."
 	oc annotate secret huggingface-secret -n $(NAMESPACE) meta.helm.sh/release-name=$(RELEASE_NAME) meta.helm.sh/release-namespace=$(NAMESPACE) --overwrite
 	oc annotate secret pgvector -n $(NAMESPACE) meta.helm.sh/release-name=rag meta.helm.sh/release-namespace=$(NAMESPACE)
 	oc annotate secret minio -n $(NAMESPACE) meta.helm.sh/release-name=rag meta.helm.sh/release-namespace=$(NAMESPACE)
-	@touch secrets
 
 .PHONY: pg-vector
 pg-vector:
 
 	@echo "Bootstrapping pgvector database"
-	oc rollout status sts/pgvector
-	oc exec -it sts/pgvector -- psql -U postgres -c "CREATE DATABASE $(POSTGRES_DBNAME);" ||:
-	oc exec -it sts/pgvector -- psql -U postgres -d $(POSTGRES_DBNAME) -c "CREATE EXTENSION VECTOR;" ||:
+	oc rollout -n $(NAMESPACE) status sts/pgvector
+	oc exec -itn $(NAMESPACE) sts/pgvector -- psql -U postgres -c "CREATE DATABASE $(POSTGRES_DBNAME);" ||:
+	oc exec -itn $(NAMESPACE) sts/pgvector -- psql -U postgres -d $(POSTGRES_DBNAME) -c "CREATE EXTENSION VECTOR;" ||:
 
 .PHONY: install-mcp-servers
 install-mcp-servers: namespace
@@ -109,7 +113,7 @@ install-mcp-servers: namespace
 
 .PHONY: configure-pipeline-server
 configure-pipeline-server: namespace
-	
+
 	@echo "Deploying Helm chart $(CONFIGURE_PIPELINE_SERVER_CHART_PATH) as release $(CONFIGURE_PIPELINE_SERVER_RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(CONFIGURE_PIPELINE_SERVER_RELEASE_NAME) $(CONFIGURE_PIPELINE_SERVER_CHART_PATH) -n $(NAMESPACE)
 
@@ -119,7 +123,7 @@ set_ingestion_args = \
 	$(if $(EMBEDDING_MODEL),--set embedding_model='$(EMBEDDING_MODEL)',) \
 	$(if $(INGESTION_PIPELINE_NAME),--set name='$(INGESTION_PIPELINE_NAME)',) \
 	$(if $(INGESTION_PIPELINE_VERSION),--set version='$(INGESTION_PIPELINE_VERSION)',) \
-    $(if $(SOURCE),--set-json S3='$(call S3_TEMPLATE,$(ACCESS_KEY_ID),$(SECRET_ACCESS_KEY),$(BUCKET_NAME),$(ENDPOINT_URL),$(REGION))',) 
+    $(if $(SOURCE),--set-json S3='$(call S3_TEMPLATE,$(ACCESS_KEY_ID),$(SECRET_ACCESS_KEY),$(BUCKET_NAME),$(ENDPOINT_URL),$(REGION))',)
 
 .PHONY: create-ingestion-pipeline
 create-ingestion-pipeline: namespace
@@ -163,9 +167,9 @@ helm_llama_stack_args = \
 
 .PHONY: create-minio-bucket
 create-minio-bucket:
-	oc wait --for=condition=Ready pod/minio-0 --timeout=300s
+	oc wait -n $(NAMESPACE) --for=condition=Ready pod/minio-0 --timeout=300s
 	sleep 5
-	oc exec minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc mb local/$(BUCKET_NAME)" ||:
+	oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc mb local/$(BUCKET_NAME)" ||:
 
 .PHONY: install-rag
 install-rag: namespace secrets install-mcp-servers
@@ -176,7 +180,7 @@ install-rag: namespace secrets install-mcp-servers
 
 	@$(MAKE) pg-vector
 	@$(MAKE) create-minio-bucket
-	
+
 	@$(MAKE) status
 	@$(MAKE) configure-pipeline-server
 	@$(MAKE) create-ingestion-pipeline
@@ -194,6 +198,8 @@ install: install-gpu
 .PHONY: uninstall
 uninstall: uninstall-helm-release uninstall-mcp-servers uninstall-ingestion-pipeline uninstall-llm-service remove-secrets remove-pvcs
 
+	@echo "Deleting remaining pods in namespace $(NAMESPACE)"
+	oc delete pods -n $(NAMESPACE) --all
 	@echo "Checking for any remaining resources in namespace $(NAMESPACE)..."
 	@echo "If you want to completely remove the namespace, run: oc delete project $(NAMESPACE)"
 
@@ -205,7 +211,6 @@ uninstall-llm-service:
 
 	@echo "Uninstalling Helm release $(LLM_SERVICE_RELEASE_NAME) from namespace $(NAMESPACE)..."
 	helm uninstall $(LLM_SERVICE_RELEASE_NAME) -n $(NAMESPACE) || echo "LLM services are not installed or already removed."
-
 
 .PHONY: uninstall-mcp-servers
 uninstall-mcp-servers:
@@ -243,14 +248,12 @@ remove-secrets:
 
 	@echo "Removing pipeline secret"
 	oc delete secret -n $(NAMESPACE) rag-pipeline-secrets || echo "Secret not found or already removed."
-	rm -f secrets namespace
 
 .PHONY: remove-pvcs
 remove-pvcs:
 
 	@echo "Removing pgvector and minio PVCs"
-	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^pg-data")
-	oc delete pvc -n $(NAMESPACE) $$(oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name --no-headers | grep "^minio-data")
+	oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name | grep -E '^(pg|minio)-data' | xargs oc delete pvc -n $(NAMESPACE) ||:
 
 # Check deployment status
 .PHONY: status
