@@ -28,19 +28,22 @@ setup_local:
 	fi
 
 run_ui: setup_local
-	podman run -it -p 8501:8501 \
-		--env LLAMA_STACK_ENDPOINT=http://localhost:8321 \
-		--env TAVILY_SEARCH_API_KEY=$(TAVILY_SEARCH_API_KEY) \
-		--network container:llamastack \
-		llamastack-dist-ui:$(VERSION)
+	if podman inspect -f '{{.State.Running}}' ui 2>/dev/null | grep -q true; then \
+		echo "ui is already running."; \
+	else \
+		echo "Starting or restarting ui ..."; \
+		podman rm -fv --depend ui 2>/dev/null || true; \
+		podman run -it \
+			$(LOCAL_VOLUME) \
+			--env LLAMA_STACK_ENDPOINT=http://localhost:8321 \
+			--env TAVILY_SEARCH_API_KEY=$(TAVILY_SEARCH_API_KEY) \
+			--network container:llamastack \
+			--name ui \
+			llamastack-dist-ui:$(VERSION); \
+	fi
 
-run_ui_local: setup_local
-	podman run -it -p 8501:8501 \
-		-v $(DIST_UI_DIR):/app:Z \
-		--env LLAMA_STACK_ENDPOINT=http://localhost:8321 \
-		--env TAVILY_SEARCH_API_KEY=$(TAVILY_SEARCH_API_KEY) \
-		--network container:llamastack \
-		llamastack-dist-ui:$(VERSION)
+run_ui_local:
+	@$(MAKE) run_ui LOCAL_VOLUME="-v $(DIST_UI_DIR):/app:Z"
 
 build_ui:
 	podman build -t llamastack-dist-ui:$(VERSION) -f $(DIST_UI_DIR)/Containerfile $(DIST_UI_DIR)
