@@ -24,12 +24,6 @@ models:
       args:
       - --max-model-len
       - "14336"
-    llamaStack:
-      modelIdEnvName: LLAMA_GUARD1B_MODEL
-      modelUrl:
-        envName: LLAMA_GUARD1B_VLLM_URL
-        envValue: auto
-      registerShield: true
 
   llama-3-2-3b-instruct:
     id: meta-llama/Llama-3.2-3B-Instruct
