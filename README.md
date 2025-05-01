@@ -263,6 +263,43 @@ or
 oc delete project llama-stack-rag
 ```
 
+## Defining a new model
+To deploy a new model using the `llm-service` Helm chart or connect to an existing vLLM server, follow these steps:
+
+1. Deploying a Model via `llm-service`
+
+    If you're deploying the model with `llm-service`, edit the file `deploy/helm/llm-service/values-gpu.yaml` and add a new model definition under the `.models` section to specify the model andyou want deployed with the `llm-service` chart and its args:
+    ```yaml
+      models:
+        llama-3-2-3b-instruct:
+          id: meta-llama/Llama-3.2-3B-Instruct
+          enabled: false
+          inferenceService:
+            args:
+            - --enable-auto-tool-choice
+            - --chat-template
+            - /vllm-workspace/examples/tool_chat_template_llama3.2_json.jinja
+            - --tool-call-parser
+            - llama3_json
+            - --max-model-len
+            - "30544"
+    ```
+
+2. Update `llama-stack` Configuration
+
+    Edit the file `deploy/helm/rag-ui/charts/llama-stack/values.yaml` and add a corresponding entry under `.models` for the LLaMA stack configuration.
+    ```yaml
+      llama-3-2-3b-instruct:
+        id: meta-llama/Llama-3.2-3B-Instruct
+        enabled: false
+        url: local-ns
+    ```
+
+Notes:
+* If the model is not deployed with `llm-service` in the same namespace as `llama-stack`, you do not need to modify the `llm-service` values.  Instead, just configure the the external model in `llama-stack` and replace `local-ns` with a url, and an optional `apiToken`.
+* To use the new model, set the `enabled` flags to true.
+
+
 ## Local Development Setup
 
 1. From the root of the project, switch to the ui directory
