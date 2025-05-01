@@ -35,6 +35,8 @@ SECRET_ACCESS_KEY ?= $(MINIO_PASSWORD)
 BUCKET_NAME ?= documents
 ENDPOINT_URL ?= http://minio:9000
 REGION ?= us-east-1
+# PDF file path variable for upload-pdf target
+PDF_FILE ?= ingestion-pipeline/files/docling.pdf
 
 S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
 
@@ -50,6 +52,7 @@ help:
 	@echo "  wait          - Wait for all pods to be ready and verify deployment health"
 	@echo "  list-models       - List available models for GPU"
 	@echo "  list-models-cpu   - List available models for CPU"
+	@echo "  upload-pdf   - Upload a PDF file to Minio (use PDF_FILE=path/to/file.pdf to specify file)"
 	@echo ""
 	@echo "Configuration options (set via environment variables or make arguments):"
 	@echo "  NAMESPACE                - Target namespace (default: llama-stack-rag)"
@@ -60,12 +63,14 @@ help:
 	@echo "  {SAFETY,LLM}_URL         - Model URL"
 	@echo "  {SAFETY,LLM}_API_TOKEN   - Model API token for remote models"
 	@echo "  {SAFETY,LLM}_TOLERATION  - Model pod toleration"
+	@echo "  PDF_FILE                 - Path to the PDF file to upload (default: ingestion-pipeline/files/docling.pdf)"
 
 # Create namespace and deploy
 namespace:
 	oc create namespace $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false ||:
 	oc project $(NAMESPACE) ||:
 
+.PHONY: secrets
 secrets:
 	@oc get secret -n $(NAMESPACE) huggingface-secret 2>/dev/null || { \
 		echo "Creating Hugging Face secret..."; \
@@ -163,13 +168,25 @@ helm_llama_stack_args = \
     $(if $(LLM_URL),--set-json llama-stack.models.$(LLM).url='"$(LLM_URL)"',) \
     $(if $(SAFETY_URL),--set-json llama-stack.models.$(SAFETY).url='"$(SAFETY_URL)"',) \
     $(if $(LLM_API_TOKEN),--set-json llama-stack.models.$(LLM).apiToken='"$(LLM_API_TOKEN)"',) \
-    $(if $(SAFETY_API_TOKEN),--set-json llama-stack.models.$(SAFETY).apiToken='"$(SAFETY_API_TOKEN)"',) \
+    $(if $(SAFETY_API_TOKEN),--set-json llama-stack.models.$(SAFETY).apiToken='"$(SAFETY_API_TOKEN)"',)
 
 .PHONY: create-minio-bucket
 create-minio-bucket:
 	oc wait -n $(NAMESPACE) --for=condition=Ready pod/minio-0 --timeout=300s
 	sleep 5
 	oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc mb local/$(BUCKET_NAME)" ||:
+
+.PHONY: upload-pdf
+upload-pdf:
+	@echo "Uploading PDF file $(PDF_FILE) to Minio bucket $(BUCKET_NAME)..."
+	@test -f "$(PDF_FILE)" || { echo "Error: File $(PDF_FILE) not found"; exit 1; }
+	@echo "Waiting for minio-0 pod to be ready..."
+	oc wait -n $(NAMESPACE) --for=condition=Ready pod/minio-0 --timeout=60s
+	@echo "Creating temporary file in minio pod..."
+	cat "$(PDF_FILE)" | oc exec -i -n $(NAMESPACE) minio-0 -- bash -c "cat > /tmp/$(shell basename $(PDF_FILE))"
+	@echo "Uploading file to bucket..."
+	oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc cp /tmp/$(shell basename $(PDF_FILE)) local/$(BUCKET_NAME)/ && rm /tmp/$(shell basename $(PDF_FILE))"
+	@echo "PDF file $(PDF_FILE) uploaded successfully to Minio bucket $(BUCKET_NAME)"
 
 .PHONY: install-rag
 install-rag: namespace secrets install-mcp-servers
@@ -180,10 +197,11 @@ install-rag: namespace secrets install-mcp-servers
 
 	@$(MAKE) pg-vector
 	@$(MAKE) create-minio-bucket
-
+	@$(MAKE) upload-pdf
 	@$(MAKE) status
 	@$(MAKE) configure-pipeline-server
 	@$(MAKE) create-ingestion-pipeline
+
 
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
