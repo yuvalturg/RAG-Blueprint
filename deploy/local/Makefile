@@ -1,52 +1,48 @@
-VERSION ?= 0.2.4
+VERSION ?= 0.2.3
 TAVILY_SEARCH_API_KEY ?= ""
 CONTAINER_REGISTRY ?= quay.io/ecosystem-appeng
 DIST_UI_DIR := $(abspath $(lastword $(MAKEFILE_LIST)/../../../frontend))
 
 setup_local:
-	@if podman inspect -f '{{.State.Running}}' ollama 2>/dev/null | grep -q true; then \
-		echo "ollama is already running."; \
-	else \
-		echo "Starting or restarting ollama ..."; \
-		podman rm -fv --depend ollama 2>/dev/null || true; \
-		podman run -d -v ollama:/root/.ollama -p 8321:8321 -p 8501:8501 --name ollama ollama/ollama; \
-	fi
-	@echo "Loading model to memory"
-	podman exec -it ollama ollama run llama3.2:3b-instruct-fp16 --keepalive 160m "hi"
+	mkdir -p ~/.local
+	ollama run llama3.2:3b-instruct-fp16 --keepalive 160m &
 
 	@if podman inspect -f '{{.State.Running}}' llamastack 2>/dev/null | grep -q true; then \
 		echo "llamastack is already running."; \
 	else \
 		echo "Starting or restarting llamastack ..."; \
 		podman rm -fv --depend llamastack 2>/dev/null || true; \
-		podman run -d -v llamastack:/root/.llama \
-			--network container:ollama \
+		podman run --platform linux/amd64 -d -v llamastack:/root/.llama \
+			-p 8321:8321 \
 			--env INFERENCE_MODEL="meta-llama/Llama-3.2-3B-Instruct" \
-			--env OLLAMA_URL=http://localhost:11434 \
+			--env OLLAMA_URL=http://host.containers.internal:11434 \
 			--name llamastack \
 			llamastack/distribution-ollama:0.2.3; \
 	fi
 
-run_ui: setup_local
+run_ui:
 	if podman inspect -f '{{.State.Running}}' ui 2>/dev/null | grep -q true; then \
 		echo "ui is already running."; \
 	else \
-		echo "Starting or restarting ui ..."; \
+		echo "Starting or restarting ui ...$(PYTHONPATH)"; \
 		podman rm -fv --depend ui 2>/dev/null || true; \
-		podman run -it \
-			$(LOCAL_VOLUME) \
-			--env LLAMA_STACK_ENDPOINT=http://localhost:8321 \
+		podman run --platform linux/amd64 -it \
+			-p 8501:8501 \
+			--env LLAMA_STACK_ENDPOINT=http://host.containers.internal:8321 \
 			--env TAVILY_SEARCH_API_KEY=$(TAVILY_SEARCH_API_KEY) \
-			--network container:llamastack \
 			--name ui \
 			llamastack-dist-ui:$(VERSION); \
 	fi
 
 run_ui_local:
-	@$(MAKE) run_ui LOCAL_VOLUME="-v $(DIST_UI_DIR):/app:Z"
+	cd ../../frontend && \
+	python3.11 -m venv .venv && \
+	source .venv/bin/activate && \
+	pip install -r requirements.txt && \
+	streamlit run llama_stack/distribution/ui/app.py
 
 build_ui:
-	podman build -t llamastack-dist-ui:$(VERSION) -f $(DIST_UI_DIR)/Containerfile $(DIST_UI_DIR)
+	podman build --platform linux/amd64 -t llamastack-dist-ui:$(VERSION) -f $(DIST_UI_DIR)/Containerfile $(DIST_UI_DIR)
 
 build_and_push_ui: build_ui
 	podman login $(CONTAINER_REGISTRY)
