@@ -13,7 +13,7 @@ from kfp import compiler
       "tqdm",
       "sentence-transformers",
       "huggingface-hub",
-      "llama-stack-client==0.1.9",
+      "llama-stack-client==0.2.3",
       "numpy",
       "pdfplumber"
   ])
