@@ -1,4 +1,4 @@
-VERSION ?= 0.2.4
+VERSION ?= 0.2.3
 TAVILY_SEARCH_API_KEY ?= ""
 CONTAINER_REGISTRY ?= quay.io/ecosystem-appeng
 DIST_UI_DIR := $(abspath $(lastword $(MAKEFILE_LIST)/../../../frontend))
@@ -34,16 +34,16 @@ run_ui: setup_local
 		echo "Starting or restarting ui ..."; \
 		podman rm -fv --depend ui 2>/dev/null || true; \
 		podman run -it \
-			$(LOCAL_VOLUME) \
+			$(RUN_ARGS) \
 			--env LLAMA_STACK_ENDPOINT=http://localhost:8321 \
 			--env TAVILY_SEARCH_API_KEY=$(TAVILY_SEARCH_API_KEY) \
 			--network container:llamastack \
 			--name ui \
-			llamastack-dist-ui:$(VERSION); \
+			llamastack-dist-ui:$(VERSION) $(EXTRA_RUN_ARGS); \
 	fi
 
 run_ui_local:
-	@$(MAKE) run_ui LOCAL_VOLUME="-v $(DIST_UI_DIR):/app:Z"
+	@$(MAKE) run_ui RUN_ARGS="-v $(DIST_UI_DIR):/app:Z --entrypoint bash" EXTRA_RUN_ARGS="-c 'pip install -e /app; streamlit run /app/llama_stack_ui/app.py'"
 
 build_ui:
 	podman build -t llamastack-dist-ui:$(VERSION) -f $(DIST_UI_DIR)/Containerfile $(DIST_UI_DIR)

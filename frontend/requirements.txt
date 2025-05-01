@@ -1,5 +1,0 @@
-streamlit
-pandas
-llama-stack-client==0.2.3
-streamlit-option-menu
-llama-stack==0.2.3
