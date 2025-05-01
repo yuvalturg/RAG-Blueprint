@@ -157,3 +157,8 @@ models:
     id: meta-llama/Llama-3.3-70B-Instruct
     enabled: false
     url: local-ns
+
+mcp-servers:
+  weather:
+    enabled: true
+    uri: http://mcp-servers-weather:8000/sse

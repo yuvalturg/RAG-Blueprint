@@ -9,8 +9,6 @@ from typing import Optional
 
 from llama_stack_client import LlamaStackClient
 
-from llama_stack.distribution.ui.modules.register_mcp_servers import RegisterMCPServers
-
 
 class LlamaStackApi:
     def __init__(self):
@@ -24,8 +22,6 @@ class LlamaStackApi:
                 "openai_api_key": os.environ.get("OPENAI_API_KEY", ""),
             },
         )
-        RegisterMCPServers().register(self.client)
-
 
     def run_scoring(self, row, scoring_function_ids: list[str], scoring_params: Optional[dict]):
         """Run scoring on a single row"""

@@ -167,3 +167,11 @@ data:
       provider_id: rag-runtime
     - toolgroup_id: builtin::code_interpreter
       provider_id: code-interpreter
+    {{- range $key, $server := index .Values "mcp-servers" }}
+    {{- if $server.enabled }}
+    - toolgroup_id: mcp::{{ $key }}
+      provider_id: model-context-protocol
+      mcp_endpoint:
+        uri: {{ $server.uri }}
+    {{- end }}
+    {{- end }}
