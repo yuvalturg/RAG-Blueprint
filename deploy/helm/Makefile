@@ -37,7 +37,7 @@ BUCKET_NAME ?= documents
 ENDPOINT_URL ?= http://minio:9000
 REGION ?= us-east-1
 # PDF file path variable for upload-pdf target
-PDF_FILE ?= ../../script/Zippity_Zoo.pdf
+PDF_FILE = ../../notebooks/Zippity_Zoo.pdf
 
 S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
 
@@ -53,7 +53,6 @@ help:
 	@echo "  wait          - Wait for all pods to be ready and verify deployment health"
 	@echo "  list-models       - List available models for GPU"
 	@echo "  list-models-cpu   - List available models for CPU"
-	@echo "  upload-pdf   - Upload a PDF file to Minio (use PDF_FILE=path/to/file.pdf to specify file)"
 	@echo ""
 	@echo "Configuration options (set via environment variables or make arguments):"
 	@echo "  NAMESPACE                - Target namespace (default: llama-stack-rag)"
@@ -64,7 +63,6 @@ help:
 	@echo "  {SAFETY,LLM}_URL         - Model URL"
 	@echo "  {SAFETY,LLM}_API_TOKEN   - Model API token for remote models"
 	@echo "  {SAFETY,LLM}_TOLERATION  - Model pod toleration"
-	@echo "  PDF_FILE                 - Path to the PDF file to upload (default: ./../script/Zippity_Zoo.pdf)"
 
 # Create namespace and deploy
 namespace:
