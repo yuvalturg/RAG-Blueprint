@@ -37,7 +37,7 @@ BUCKET_NAME ?= documents
 ENDPOINT_URL ?= http://minio:9000
 REGION ?= us-east-1
 # PDF file path variable for upload-pdf target
-PDF_FILE ?= ingestion-pipeline/files/docling.pdf
+PDF_FILE ?= ../../script/Zippity_Zoo.pdf
 
 S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
 
@@ -64,7 +64,7 @@ help:
 	@echo "  {SAFETY,LLM}_URL         - Model URL"
 	@echo "  {SAFETY,LLM}_API_TOKEN   - Model API token for remote models"
 	@echo "  {SAFETY,LLM}_TOLERATION  - Model pod toleration"
-	@echo "  PDF_FILE                 - Path to the PDF file to upload (default: ingestion-pipeline/files/docling.pdf)"
+	@echo "  PDF_FILE                 - Path to the PDF file to upload (default: ./../script/Zippity_Zoo.pdf)"
 
 # Create namespace and deploy
 namespace:
