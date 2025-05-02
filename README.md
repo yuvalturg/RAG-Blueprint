@@ -268,7 +268,7 @@ To deploy a new model using the `llm-service` Helm chart or connect to an existi
 
 1. Deploying a Model via `llm-service`
 
-    If you're deploying the model with `llm-service`, edit the file `deploy/helm/llm-service/values-gpu.yaml` and add a new model definition under the `.models` section to specify the model andyou want deployed with the `llm-service` chart and its args:
+    If you're deploying the model with `llm-service`, edit the file `deploy/helm/llm-service/values-gpu.yaml` and add a new model definition under the `.models` section to specify the model you want deployed with the `llm-service` chart and its args:
     ```yaml
       models:
         llama-3-2-3b-instruct:
