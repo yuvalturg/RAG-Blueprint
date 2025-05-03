@@ -279,6 +279,8 @@ open $URL
 
 6. Ask a question pertaining to your document!
 
+![RAG UI Main 3](./docs/img/rag-ui-3.png)
+
 Refer to the [post installation](docs/post_installation.md) document for batch document ingestion.
 
 ## Uninstalling the RAG application
