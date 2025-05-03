@@ -82,7 +82,8 @@ The kickstart supports two modes of deployments
 - OpenShift Client CLI - [oc](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/cli_tools/openshift-cli-oc#installing-openshift-cli)
 - Helm CLI - helm
 - [huggingface-cli](https://huggingface.co/docs/huggingface_hub/guides/cli) (Optional)
-- 2 GPUs, each with 24GB of VRAM, one for LLM and the another for Safety Model, refer to the chart below
+- 1 GPU with 24GB of VRAM for the LLM, refer to the chart below
+- 1 GPU with 24GB of VRAM for the safety/shield model (optional)
 - [Hugging Face Token](https://huggingface.co/settings/tokens)
 - Access to [Meta Llama](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct/) model.
 - Access to [Meta Llama Guard](https://huggingface.co/meta-llama/Llama-Guard-3-8B/) model.
@@ -93,11 +94,12 @@ The kickstart supports two modes of deployments
 | Function    | Model Name                             | GPU         | AWS
 |-------------|----------------------------------------|-------------|-------------
 | Embedding   | `all-MiniLM-L6-v2`                     | CPU or GPU  |
-| Safety      | `meta-llama/Llama-Guard-3-8B`          | L4          | g6.2xlarge
 | Generation  | `meta-llama/Llama-3.2-3B-Instruct`     | L4          | g6.2xlarge
+| Generation  | `meta-llama/Llama-3.1-8B-Instruct`     | L4          | g6.2xlarge
 | Generation  | `meta-llama/Meta-Llama-3-70B-Instruct` | A100 x2     | p4d.24xlarge
+| Safety      | `meta-llama/Llama-Guard-3-8B`          | L4          | g6.2xlarge
 
-Note: 70B model is NOT required for initial testing of this example
+Note: the 70B model is NOT required for initial testing of this example.  The safety/shield model `Llama-Guard-3-8B` is also optional. 
 
 ---
 
@@ -176,15 +178,29 @@ The above command will list the models to use in the next command
 
 ```bash
 (Output)
-model: llama-3-2-3b-instruct
-model: llama-guard-3-8b (shield)
+model: llama-3-1-8b-instruct (meta-llama/Llama-3.1-8B-Instruct)
+model: llama-3-2-1b-instruct (meta-llama/Llama-3.2-1B-Instruct)
+model: llama-3-2-3b-instruct (meta-llama/Llama-3.2-3B-Instruct)
+model: llama-3-3-70b-instruct (meta-llama/Llama-3.3-70B-Instruct)
+model: llama-guard-3-1b (meta-llama/Llama-Guard-3-1B)
+model: llama-guard-3-8b (meta-llama/Llama-Guard-3-8B)
 ```
+
+The "guard" models can be used to test shields for profanity, hate speech, violence, etc. 
 
 6. Install via make
 
 Use the taint key from above as the `LLM_TOLERATION` and `SAFETY_TOLERATION`
 
 The namespace will be auto-created
+
+To install only the RAG example, no shields, use the following command:
+
+```bash
+make install NAMESPACE=llama-stack-rag LLM=llama-3-2-3b-instruct LLM_TOLERATION="nvidia.com/gpu"
+```
+
+To install both the RAG example as well as the guard model to allow for shields, use the following command:
 
 ```bash
 make install NAMESPACE=llama-stack-rag LLM=llama-3-2-3b-instruct LLM_TOLERATION="nvidia.com/gpu" SAFETY=llama-guard-3-8b SAFETY_TOLERATION="nvidia.com/gpu"
@@ -208,15 +224,27 @@ oc get pods -n llama-stack-rag
 
 ```
 (Output)
-NAME                                                              READY   STATUS    RESTARTS   AGE
-llama-3-2-3b-instruct-predictor-00001-deployment-5499d774cwtqbc   3/3     Running   0          11m
-llama-guard-3-8b-predictor-00001-deployment-7768b4d4ff-kqrnf      3/3     Running   0          11m
-llamastack-7f59d798f8-8zkzw                                       1/1     Running   0          2m27s
-mcp-servers-weather-65cff98c8b-n6qr7                              1/1     Running   0          11m
-minio-0                                                           1/1     Running   0          11m
-pgvector-0                                                        1/1     Running   0          11m
-rag-pipeline-notebook-0                                           2/2     Running   0          2m22s
-rag-rag-ui-7f5dcb5cf4-8mfv6                                       1/1     Running   0          11m
+NAME                                                               READY   STATUS      RESTARTS   AGE
+demo-rag-vector-db-v1-0-2ssgk                                      0/1     Error       0          7m49s
+demo-rag-vector-db-v1-0-fhlpw                                      0/1     Completed   0          7m15s
+demo-rag-vector-db-v1-0-zx9q9                                      0/1     Error       0          8m16s
+ds-pipeline-dspa-6899c9df7c-4j459                                  2/2     Running     0          7m53s
+ds-pipeline-metadata-envoy-dspa-7659ddc8d9-vh24q                   2/2     Running     0          7m51s
+ds-pipeline-metadata-grpc-dspa-8665cd5c6c-4z9g6                    1/1     Running     0          7m51s
+ds-pipeline-persistenceagent-dspa-56f888bc78-h2mtr                 1/1     Running     0          7m53s
+ds-pipeline-scheduledworkflow-dspa-c94d5c95d-j4874                 1/1     Running     0          7m52s
+ds-pipeline-workflow-controller-dspa-5799548b68-bs6pj              1/1     Running     0          7m52s
+fetch-and-store-pipeline-pf6nr-system-container-driver-692373917   0/2     Completed   0          6m38s
+fetch-and-store-pipeline-pf6nr-system-container-impl-2125359307    0/2     Error       0          6m28s
+fetch-and-store-pipeline-pf6nr-system-dag-driver-3719582226        0/2     Completed   0          6m59s
+llama-3-2-3b-instruct-predictor-00001-deployment-6b85857bd4nfhr    3/3     Running     0          12m
+llamastack-6f55c69f7c-ctctl                                        1/1     Running     0          8m54s
+mariadb-dspa-74744d65bd-gqnzb                                      1/1     Running     0          8m17s
+mcp-servers-weather-65cff98c8b-42n8h                               1/1     Running     0          8m58s
+minio-0                                                            1/1     Running     0          8m52s
+pgvector-0                                                         1/1     Running     0          8m53s
+rag-pipeline-notebook-0                                            2/2     Running     0          8m17s
+rag-rag-ui-6c756945bf-st6hm                                        1/1     Running     0          8m55s
 ```
 
 8. Verify:
@@ -233,6 +261,7 @@ oc get routes -n llama-stack-rag
 
 ```bash
 URL=http://$(oc get routes -l app.kubernetes.io/name=rag-ui -o jsonpath="{range .items[*]}{.status.ingress[0].host}{end}")
+echo $URL
 open $URL
 ```
 
@@ -250,9 +279,9 @@ open $URL
 
 6. Ask a question pertaining to your document!
 
-Refer to the [post installation](docs/post_installation.md) document for document ingestion.
+Refer to the [post installation](docs/post_installation.md) document for batch document ingestion.
 
-10. Uninstalling the RAG application
+## Uninstalling the RAG application
 
 ```bash
 make uninstall NAMESPACE=llama-stack-rag
@@ -301,6 +330,8 @@ Notes:
 
 
 ## Local Development Setup
+
+Refer to the [local setup guide](docs/local_setup_guide.md) document for configuring your workstation for code changes and local testing.
 
 1. From the root of the project, switch to the ui directory
 
