@@ -1,4 +1,4 @@
-VERSION ?= 0.2.3
+VERSION ?= 0.2.5
 TAVILY_SEARCH_API_KEY ?= ""
 CONTAINER_REGISTRY ?= quay.io/ecosystem-appeng
 DIST_UI_DIR := $(abspath $(lastword $(MAKEFILE_LIST)/../../../frontend))
@@ -17,7 +17,7 @@ setup_local:
 			--env INFERENCE_MODEL="meta-llama/Llama-3.2-3B-Instruct" \
 			--env OLLAMA_URL=http://host.containers.internal:11434 \
 			--name llamastack \
-			llamastack/distribution-ollama:0.2.3; \
+			llamastack/distribution-ollama:0.2.5; \
 	fi
 
 run_ui:
