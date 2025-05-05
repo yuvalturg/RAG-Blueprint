@@ -22,4 +22,6 @@ servingRuntime:
   - emptyDir:
       sizeLimit: 5Gi
     name: vllm-home
-hf_token: ""
+secret:
+  enabled: true
+  hf_token: ""
