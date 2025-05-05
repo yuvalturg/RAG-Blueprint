@@ -130,6 +130,11 @@ tolerations: []
 
 affinity: {}
 
+secrets:
+  tavily-search:
+    env: TAVILY_SEARCH_API_KEY
+    value:
+
 models:
   llama-3-2-3b-instruct:
     id: meta-llama/Llama-3.2-3B-Instruct
