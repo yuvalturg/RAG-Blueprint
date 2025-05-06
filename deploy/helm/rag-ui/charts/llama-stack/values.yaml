@@ -162,6 +162,10 @@ models:
     id: meta-llama/Llama-3.3-70B-Instruct
     enabled: false
     url: local-ns
+  llama-3-2-1b-instruct-quantized:
+    id: RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8
+    enabled: false
+    url: local-ns
 
 mcp-servers:
   weather:
