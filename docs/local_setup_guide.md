@@ -13,7 +13,7 @@ Install the following tools:
 - [pip](https://pip.pypa.io/en/stable/installation/)
 - [Ollama](https://ollama.com/download)
 
-Verify installation:
+Verify tools:
 
 ```bash
 podman --version
@@ -21,6 +21,8 @@ python3 --version
 pip --version
 ollama --version
 ```
+
+Note: `pip` might become available only after you setup your venv (see below).  Also, `docker` works as well as podman. 
 
 ---
 
@@ -93,11 +95,16 @@ podman ps
 
 ## 🐍 5. Set Up Python Environment
 
-Install `uv` and sync dependencies:
+Switch over to the `frontend` directory
 
 ```bash
-pip install uv
-uv sync
+cd frontend
+```
+
+Create a Python venv using your Python3.x executable
+
+```bash
+python3.11 -m venv .venv
 ```
 
 Activate the virtual environment:
@@ -108,10 +115,28 @@ source .venv/bin/activate  # macOS/Linux
 # llama-stack-demo\Scripts\activate
 ```
 
+```bash
+pip install -r requirements.txt
+```
+
 Check installation:
 
 ```bash
-pip list | grep llama-stack-client
+pip show llama-stack-client
+```
+
+```
+Output
+Name: llama_stack_client
+Version: 0.2.5
+Summary: The official Python library for the llama-stack-client API
+Home-page: https://github.com/meta-llama/llama-stack-client-python
+Author:
+Author-email: Llama Stack Client <dev-feedback@llama-stack-client.com>
+License:
+Location: /Users/bsutter/my-projects/redhat/RAG-Blueprint/frontend/.venv/lib/python3.11/site-packages
+Requires: anyio, click, distro, httpx, pandas, prompt-toolkit, pyaml, pydantic, rich, sniffio, termcolor, tqdm, typing-extensions
+Required-by: llama_stack
 ```
 
 ---
@@ -124,20 +149,31 @@ Point the client to the local Llama Stack server:
 llama-stack-client configure --endpoint http://localhost:$LLAMA_STACK_PORT
 ```
 
+Hit enter as there is no API key for ollama and this container based Llama Stack server
+
+```
+> Enter the API key (leave empty if no key is needed):
+```
+
 List models:
 
 ```bash
 llama-stack-client models list
 ```
 
----
+```
+Output
+Available Models
 
-## ⚡ 7. Quick Re-Setup
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
+┃ model_type        ┃ identifier                                         ┃ provider_resource_id                    ┃ metadata                                        ┃ provider_id       ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
+│ embedding         │ all-MiniLM-L6-v2                                   │ all-minilm:latest                       │ {'embedding_dimension': 384.0}                  │ ollama            │
+├───────────────────┼────────────────────────────────────────────────────┼─────────────────────────────────────────┼─────────────────────────────────────────────────┼───────────────────┤
+│ llm               │ meta-llama/Llama-3.2-3B-Instruct                   │ llama3.2:3b-instruct-fp16               │                                                 │ ollama            │
+└───────────────────┴────────────────────────────────────────────────────┴─────────────────────────────────────────┴─────────────────────────────────────────────────┴───────────────────┘
 
-After initial setup, you can restart everything with:
-
-```bash
-make setup_local
+Total models: 2
 ```
 
 ---
@@ -153,7 +189,7 @@ podman ps
 **Activate your virtual environment:**
 
 ```bash
-source llama-stack-demo/bin/activate
+source .venv/bin/activate
 ```
 
 **Reinstall the client if needed:**
@@ -168,3 +204,14 @@ pip install llama-stack-client
 ```bash
 python -c "from llama_stack_client import LlamaStackClient; print(LlamaStackClient)"
 ```
+
+## 10. Running the GUI locally
+
+```bash
+cd llama_stack/distribution/ui/
+```
+
+```bash
+streamlit run app.py
+```
+
