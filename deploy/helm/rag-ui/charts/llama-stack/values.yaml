@@ -9,7 +9,7 @@ image:
   repository: llamastack/distribution-remote-vllm
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "0.1.9"
+  tag: "0.2.5"
 
 imagePullSecrets: []
 nameOverride: "llamastack"
@@ -54,7 +54,7 @@ env:
   - name: POSTGRES_USER
     valueFrom:
       secretKeyRef:
-        key: username
+        key: user
         name: pgvector
   - name: POSTGRES_PASSWORD
     valueFrom:
@@ -129,3 +129,45 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+secrets:
+  tavily-search:
+    env: TAVILY_SEARCH_API_KEY
+    value:
+
+models:
+  llama-3-2-3b-instruct:
+    id: meta-llama/Llama-3.2-3B-Instruct
+    enabled: false
+    url: local-ns
+  llama-guard-3-8b:
+    id: meta-llama/Llama-Guard-3-8B
+    enabled: false
+    url: local-ns
+    registerShield: true
+  llama-3-2-1b-instruct:
+    id: meta-llama/Llama-3.2-1B-Instruct
+    enabled: false
+    url: local-ns
+  llama-3-1-8b-instruct:
+    id: meta-llama/Llama-3.1-8B-Instruct
+    enabled: false
+    url: local-ns
+  llama-guard-3-1b:
+    id: meta-llama/Llama-Guard-3-1B
+    enabled: false
+    url: local-ns
+    registerShield: true
+  llama-3-3-70b-instruct:
+    id: meta-llama/Llama-3.3-70B-Instruct
+    enabled: false
+    url: local-ns
+  llama-3-2-1b-instruct-quantized:
+    id: RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8
+    enabled: false
+    url: local-ns
+
+mcp-servers:
+  weather:
+    enabled: true
+    uri: http://mcp-servers-weather:8000/sse

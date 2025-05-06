@@ -1,3 +1,11 @@
+{{- $root := . }}
+{{- $shields := list }}
+{{- range $key, $model := .Values.models }}
+  {{- if and $model.enabled $model.registerShield }}
+    {{- $shields = append $shields $model }}
+  {{- end }}
+{{- end }}
+---
 kind: ConfigMap
 apiVersion: v1
 metadata:
@@ -18,14 +26,18 @@ data:
     - vector_io
     providers:
       inference:
-      {{- range $key, $model := $.Values.global.models }}
+      {{- range $key, $model := .Values.models }}
       {{- if $model.enabled }}
       - provider_id: {{ $key }}
         provider_type: remote::vllm
         config:
-          url: ${env.{{ $model.llamaStack.modelUrl.envName }}}
-          max_tokens: 4096
-          api_token: fake
+          {{- if eq $model.url "local-ns" }}
+          url: https://{{ $key }}.{{ $root.Release.Namespace }}.svc.cluster.local/v1
+          {{- else }}
+          url: {{ $model.url }}
+          {{- end }}
+          api_token: {{ $model.apiToken | default "fake" }}
+          max_tokens: {{ $model.maxTokens | default 4096 }}
           tls_verify: ${env.VLLM_TLS_VERIFY:false}
       {{- end }}
       {{- end }}
@@ -111,9 +123,6 @@ data:
         config:
           api_key: ${env.TAVILY_SEARCH_API_KEY:}
           max_results: 3
-      - provider_id: code-interpreter
-        provider_type: inline::code-interpreter
-        config: {}
       - provider_id: rag-runtime
         provider_type: inline::rag-runtime
         config: {}
@@ -124,10 +133,10 @@ data:
       type: sqlite
       db_path: ${env.SQLITE_STORE_DIR:~/.llama/distributions/remote-vllm}/registry.db
     models:
-    {{- range $key, $model := $.Values.global.models }}
+    {{- range $key, $model := .Values.models }}
     {{- if $model.enabled }}
     - metadata: {}
-      model_id: ${env.{{ $model.llamaStack.modelIdEnvName }}}
+      model_id: {{ $model.id }}
       provider_id: {{ $key }}
       model_type: llm
     {{- end }}
@@ -137,13 +146,11 @@ data:
       model_id: all-MiniLM-L6-v2
       provider_id: sentence-transformers
       model_type: embedding
+    {{- with $shields }}
     shields:
-    {{- range $key, $model := $.Values.global.models }}
-    {{- if $model.enabled }}
-    {{- if $model.llamaStack.registerShield }}
-    - shield_id: ${env.{{ $model.llamaStack.modelIdEnvName }}}
+    {{- range $model := . }}
+    - shield_id: {{ $model.id }}
       provider_id: llama-guard
-    {{- end }}
     {{- end }}
     {{- end }}
     vector_dbs: []
@@ -155,5 +162,11 @@ data:
       provider_id: tavily-search
     - toolgroup_id: builtin::rag
       provider_id: rag-runtime
-    - toolgroup_id: builtin::code_interpreter
-      provider_id: code-interpreter
+    {{- range $key, $server := index .Values "mcp-servers" }}
+    {{- if $server.enabled }}
+    - toolgroup_id: mcp::{{ $key }}
+      provider_id: model-context-protocol
+      mcp_endpoint:
+        uri: {{ $server.uri }}
+    {{- end }}
+    {{- end }}
