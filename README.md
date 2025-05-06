@@ -117,47 +117,25 @@ git clone https://github.com/RHEcosystemAppEng/RAG-Blueprint
 oc login --server="<cluster-api-endpoint>" --token="sha256~XYZ"
 ```
 
-3. Find your GPU worker node label and taint
+3. If the GPU nodes are tainted, find the taint key. You will have to pass in the
+   make command to ensure that the llm pods are deployed on the tainted nodes with GPU.
+   In the example below the key for the taint is `nvidia.com/gpu`
 
-
-List of worker nodes with `worker-gpu` label
 
 ```bash
-oc get nodes -l node-role.kubernetes.io/worker-gpu
+oc get nodes -o yaml | grep -A 3 taint
 ```
-
-Or perhaps list of nodes with `nvidia.com/gpu` label prefix
-
-```bash
-oc get nodes -o json | jq -r '
-  .items[] |
-  select(
-    .metadata.labels | keys[] | startswith("nvidia.com/gpu")
-  ) |
-  .metadata.name
-'
+The output of the command will be something like below
 ```
-
-Find one of those GPU-enabled worker nodes, assuming they are configured the same
-
-```bash
-NODE=$(oc get nodes -l node-role.kubernetes.io/worker-gpu --no-headers | head -n 1 | awk '{print $1}')
-```
-
-Extract the taints section of the worker node
-
-```bash
-oc get node $NODE -o json | jq '.spec.taints'
-```
-
-```
-[
-  {
-    "effect": "NoSchedule",
-    "key": "nvidia.com/gpu",
-    "value": "True"
-  }
-]
+  taints:
+    - effect: NoSchedule
+      key: nvidia.com/gpu
+      value: "true"
+--
+    taints:
+    - effect: NoSchedule
+      key: nvidia.com/gpu
+      value: "true"
 ```
 
 You can work with your OpenShift cluster admin team to determine what labels and taints identify GPU-enabled worker nodes.  It is also possible that all your worker nodes have GPUs therefore have no distinguishing taint.
@@ -186,7 +164,7 @@ model: llama-guard-3-1b (meta-llama/Llama-Guard-3-1B)
 model: llama-guard-3-8b (meta-llama/Llama-Guard-3-8B)
 ```
 
-The "guard" models can be used to test shields for profanity, hate speech, violence, etc. 
+The "guard" models can be used to test shields for profanity, hate speech, violence, etc.
 
 6. Install via make
 
