@@ -11,7 +11,7 @@ def main():
         "Chat": ("page/playground/chat.py", "💬"),
         "Evaluations": ("page/evaluations/evaluations.py", "📊"),
         "Inspect": ("page/distribution/inspect.py", "🔍"),
-        "Upload": ("page/playground/upload.py", "📄"),
+        "Upload": ("page/upload/upload.py", "📄"),
     }
 
     # Build navigation items dynamically
@@ -20,9 +20,10 @@ def main():
         for name, (path, icon) in pages.items()
     ]
     # Render navigation
-    pg = st.navigation({"Navigation": nav_items}, expanded=False)
+    pg = st.navigation({"Playground": nav_items}, expanded=False)
     pg.run()
 
 
 if __name__ == "__main__":
     main()
+
