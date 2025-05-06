@@ -43,15 +43,9 @@ spec:
             {{- toYaml .Values.args | nindent 12 }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
-            {{- range $key, $secret := .Values.secrets }}
-            {{- if not (empty $secret.value) }}
-            - name: {{ $secret.env }}
-              valueFrom:
-                secretKeyRef:
-                  key: {{ $secret.env }}
-                  name: {{ $key }}
-            {{- end }}
-            {{- end }}
+          envFrom:
+          - secretRef:
+              name: {{ .Chart.Name }}-env
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
