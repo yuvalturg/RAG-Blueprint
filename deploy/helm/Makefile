@@ -37,7 +37,7 @@ BUCKET_NAME ?= documents
 ENDPOINT_URL ?= http://minio:9000
 REGION ?= us-east-1
 # PDF file path variable for upload-pdf target
-PDF_FILE = ../../notebooks/Zippity_Zoo.pdf
+PDF_DIR = ../../notebooks
 
 S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
 
@@ -144,15 +144,27 @@ create-minio-bucket:
 
 .PHONY: upload-pdf
 upload-pdf:
-	@echo "Uploading PDF file $(PDF_FILE) to Minio bucket $(BUCKET_NAME)..."
-	@test -f "$(PDF_FILE)" || { echo "Error: File $(PDF_FILE) not found"; exit 1; }
+	@echo "Uploading all PDF files from $(PDF_DIR) to Minio bucket $(BUCKET_NAME)..."
 	@echo "Waiting for minio-0 pod to be ready..."
 	oc wait -n $(NAMESPACE) --for=condition=Ready pod/minio-0 --timeout=60s
-	@echo "Creating temporary file in minio pod..."
-	cat "$(PDF_FILE)" | oc exec -i -n $(NAMESPACE) minio-0 -- bash -c "cat > /tmp/$(shell basename $(PDF_FILE))"
-	@echo "Uploading file to bucket..."
-	oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc cp /tmp/$(shell basename $(PDF_FILE)) local/$(BUCKET_NAME)/ && rm /tmp/$(shell basename $(PDF_FILE))"
-	@echo "PDF file $(PDF_FILE) uploaded successfully to Minio bucket $(BUCKET_NAME)"
+	@echo "Setting up minio client alias..."
+	oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD)"
+	@find $(PDF_DIR) -name "*.pdf" -type f | while read -r pdf_file; do \
+		echo "Uploading $${pdf_file}..."; \
+		test -f "$${pdf_file}" || { echo "Error: File $${pdf_file} not found"; continue; }; \
+		# Create a safe unique temporary filename using a timestamp and counter to prevent issues with special chars\
+		temp_name="tmp_$$(date +%s)_$${RANDOM}.pdf"; \
+		echo "Creating temporary file in minio pod with safe name: $${temp_name}"; \
+		cat "$${pdf_file}" | oc exec -i -n $(NAMESPACE) minio-0 -- bash -c "cat > /tmp/$${temp_name}"; \
+		# Extract original filename \
+		orig_name="$$(basename "$${pdf_file}")"; \
+		echo "Uploading file to bucket with original name: $${orig_name}"; \
+		# Copying file with temporary name, then renaming it to original name \
+		oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc cp /tmp/$${temp_name} local/$(BUCKET_NAME)/$${temp_name} && \
+		mc mv local/$(BUCKET_NAME)/$${temp_name} \"local/$(BUCKET_NAME)/$${orig_name}\" && \
+		rm /tmp/$${temp_name}"; \
+		echo "PDF file '$${pdf_file}' uploaded successfully to Minio bucket $(BUCKET_NAME)"; \
+	done
 
 install-gpu: install-llm-service-gpu install-rag
 install-cpu: install-llm-service-cpu install-rag
