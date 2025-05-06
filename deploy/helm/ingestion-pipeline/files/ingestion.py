@@ -20,7 +20,6 @@ def fetch_from_s3(output_dir: dsl.OutputPath()):
     minio_endpoint = os.environ.get('ENDPOINT_URL')
     minio_access_key = os.environ.get('ACCESS_KEY_ID')
     minio_secret_key = os.environ.get('SECRET_ACCESS_KEY')
-    region_name = os.environ.get('REGION')
 
     # Step 1: Download files from MinIO
     temp_dir = tempfile.mkdtemp()
@@ -99,12 +98,9 @@ def fetch_from_s3(output_dir: dsl.OutputPath()):
         "docling-core"
     ])
 def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPath()):
-    import shutil
     import os
-    import tempfile
     import json
     
-    # Debug input directory
     print(f"Input directory: {input_dir}")
     if os.path.exists(input_dir):
         print(f"Contents of input directory: {os.listdir(input_dir)}")
@@ -112,7 +108,6 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
         print(f"Input directory does not exist: {input_dir}")
     
     # Set EasyOCR path to a writeable directory BEFORE importing docling
-    # It runs fine without it in the local environment, but fails in the pipeline container
     os.environ["EASYOCR_MODULE_PATH"] = "/tmp/.EasyOCR"
 
     from llama_stack_client import LlamaStackClient
@@ -125,14 +120,14 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
     from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
     from docling_core.types.doc.labels import DocItemLabel
 
-    source = os.environ.get('SOURCE')
+    # Configuring the vector database
     name = os.environ.get('NAME')
     version = os.environ.get('VERSION')
     embedding_model = os.environ.get('EMBEDDING_MODEL')
 
     vector_db_name = f"{name}-v{version}".replace(" ", "-").replace(".", "-")
     
-    # Read the manifest to get the list of files
+    # Read the manifest created by the fetch phase to get the list of files
     manifest_path = os.path.join(input_dir, "manifest.json")
     if not os.path.exists(manifest_path):
         raise FileNotFoundError(f"Manifest file not found at {manifest_path}")
@@ -151,20 +146,27 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
             print(f"Warning: File doesn't exist: {file_path}")
         else:
             print(f"File exists: {file_path}, size: {os.path.getsize(file_path)} bytes")
-    
-    # Step 2: Process the PDFs with docling
+
+    # Step 2: Process files with docling
     # Setup docling components
     pipeline_options = PdfPipelineOptions()
     pipeline_options.generate_picture_images = True
     converter = DocumentConverter(
-                format_options={
-                    InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-                }
+        allowed_formats=[
+            InputFormat.PDF,
+            InputFormat.MD,
+            InputFormat.DOCX,
+            InputFormat.ASCIIDOC,
+            InputFormat.JSON_DOCLING,
+            InputFormat.HTML
+        ],
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+        }
     )
     chunker = HybridChunker()
     llama_documents = []
     i = 0
-    
     # Process each file with docling (chunking)
     for file_path in input_files:
         # Skip empty files
@@ -176,36 +178,19 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
         if file_size == 0:
             print(f"Skipping empty file: {file_path} (0 bytes)")
             continue
-
-        # Get file extension
-        _, file_extension = os.path.splitext(file_path)
-        file_extension = file_extension.lower()
         
-        print(f"Processing {file_path} (extension: {file_extension}) with docling...")
+        print(f"Processing {file_path} with docling...")
         try:
-            # Different format options based on file type
-            if file_extension == '.pdf':
-                pipeline_options = PdfPipelineOptions()
-                pipeline_options.generate_picture_images = True
-                converter = DocumentConverter(
-                    format_options={
-                        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-                    }
-                )
-            else:
-                # Use generic converter for all other file types
-                print(f"Using generic converter for file type: {file_extension}")
-                converter = DocumentConverter()
-                
             docling_doc = converter.convert(source=file_path).document
             chunks = chunker.chunk(docling_doc)
             chunk_count = 0
 
             for chunk in chunks:
                 if any(
-                    c.label in [DocItemLabel.TEXT, DocItemLabel.PARAGRAPH, DocItemLabel.TABLE, 
-                               DocItemLabel.TABLE_CELL, DocItemLabel.HEADER, DocItemLabel.FOOTER, 
-                               DocItemLabel.TITLE, DocItemLabel.PICTURE_DESCRIPTION]
+                    c.label in [DocItemLabel.TEXT, DocItemLabel.PARAGRAPH, DocItemLabel.TABLE,
+                               DocItemLabel.PAGE_HEADER, DocItemLabel.PAGE_FOOTER,
+                               DocItemLabel.TITLE, DocItemLabel.PICTURE, DocItemLabel.CHART,
+                               DocItemLabel.DOCUMENT_INDEX, DocItemLabel.SECTION_HEADER]
                     for c in chunk.meta.doc_items
                 ):
                     i += 1
@@ -214,11 +199,10 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
                         LlamaStackDocument(
                             document_id=f"doc-{i}",
                             content=chunk.text,
-                            mime_type="text/plain",
+                            mime_type='text/plain',
                             metadata={"source": os.path.basename(file_path)},
                         )
                     )
-            
             print(f"Created {chunk_count} chunks from {file_path}")
             
         except Exception as e:
@@ -246,7 +230,129 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
     except Exception as e:
         error_message = str(e)
         print(f"Failed to register vector DB: {error_message}")
-        print("Continuing with insertion...")
+        raise Exception(f"Vector DB registration failed: {error_message}")
+
+    try:
+        print(f"Inserting {total_chunks} chunks into vector database")
+        client.tool_runtime.rag_tool.insert(
+            documents=llama_documents,
+            vector_db_id=vector_db_name,
+            chunk_size_in_tokens=512,
+        )
+        print("Documents successfully inserted into the vector DB")
+
+    except Exception as e:
+        print("Embedding insert failed:", e)
+        raise Exception(f"Failed to insert documents into vector DB: {e}")
+
+@dsl.component(
+    base_image="python:3.10",
+    packages_to_install=[
+        "llama-stack-client==0.2.3", 
+        "docling",
+        "docling-core"
+    ])
+def urls_to_pgvector(llamastack_base_url: str):
+    import os
+    import json
+  
+    # Set EasyOCR path to a writeable directory BEFORE importing docling
+    os.environ["EASYOCR_MODULE_PATH"] = "/tmp/.EasyOCR"
+
+    from llama_stack_client import LlamaStackClient
+    from llama_stack_client.types import Document as LlamaStackDocument
+    
+    # Import docling libraries
+    from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+    from docling_core.types.doc.labels import DocItemLabel
+
+    # Configuring the vector database
+    name = os.environ.get('NAME')
+    version = os.environ.get('VERSION')
+    embedding_model = os.environ.get('EMBEDDING_MODEL')
+
+    vector_db_name = f"{name}-v{version}".replace(" ", "-").replace(".", "-")
+    
+    # Step 2: Process files with docling
+    # Setup docling components
+    pipeline_options = PdfPipelineOptions()
+    pipeline_options.generate_picture_images = True
+    converter = DocumentConverter(
+        allowed_formats=[
+            InputFormat.PDF,
+            InputFormat.MD,
+            InputFormat.DOCX,
+            InputFormat.ASCIIDOC,
+            InputFormat.JSON_DOCLING,
+            InputFormat.HTML
+        ],
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+        }
+    )
+    chunker = HybridChunker()
+    llama_documents = []
+    input_files = os.environ.get('URLS', '')
+    input_files = input_files.strip('[]').split()
+    print(f"Input files: {input_files}")
+    i = 0
+    # Process each file with docling (chunking)
+    for file_path in input_files:
+        print(f"Processing {file_path} with docling...")
+        try:
+            docling_doc = converter.convert(source=file_path).document
+            chunks = chunker.chunk(docling_doc)
+            chunk_count = 0
+
+            for chunk in chunks:
+                if any(
+                    c.label in [DocItemLabel.TEXT, DocItemLabel.PARAGRAPH, DocItemLabel.TABLE,
+                               DocItemLabel.PAGE_HEADER, DocItemLabel.PAGE_FOOTER,
+                               DocItemLabel.TITLE, DocItemLabel.PICTURE, DocItemLabel.CHART,
+                               DocItemLabel.DOCUMENT_INDEX, DocItemLabel.SECTION_HEADER]
+                    for c in chunk.meta.doc_items
+                ):
+                    i += 1
+                    chunk_count += 1
+                    llama_documents.append(
+                        LlamaStackDocument(
+                            document_id=f"doc-{i}",
+                            content=chunk.text,
+                            mime_type='text/plain',
+                            metadata={"source": os.path.basename(file_path)},
+                        )
+                    )
+            print(f"Created {chunk_count} chunks from {file_path}")
+            
+        except Exception as e:
+            error_message = str(e)
+            print(f"Error processing {file_path}: {error_message}")
+
+    total_chunks = len(llama_documents)
+    print(f"Total valid chunks prepared: {total_chunks}")
+
+    # Add error handling for zero chunks
+    if total_chunks == 0:
+        raise Exception("No valid chunks were created. Check document processing errors above.")
+
+    # Step 3: Register vector database and store chunks with embeddings
+    client = LlamaStackClient(base_url=llamastack_base_url)
+    print("Registering db")
+    try:
+        client.vector_dbs.register(
+            vector_db_id=vector_db_name,
+            embedding_model=embedding_model,
+            embedding_dimension=384,
+            provider_id="pgvector",
+        )
+        print("Vector DB registered successfully")
+    except Exception as e:
+        error_message = str(e)
+        print(f"Failed to register vector DB: {error_message}")
+        raise Exception(f"Vector DB registration failed: {error_message}")
 
     try:
         print(f"Inserting {total_chunks} chunks into vector database")
@@ -262,7 +368,7 @@ def process_and_store_pgvector(llamastack_base_url: str, input_dir: dsl.InputPat
         raise Exception(f"Failed to insert documents into vector DB: {e}")
 
 @dsl.pipeline(name="fetch-and-store-pipeline")
-def full_pipeline():
+def s3_pipeline():
   from kfp import kubernetes
   secret_key_to_env = {
           'SOURCE': 'SOURCE',
@@ -277,11 +383,13 @@ def full_pipeline():
   }
 
   fetch_task = fetch_from_s3()
-  
+  fetch_task.set_caching_options(False)
+
   process_task = process_and_store_pgvector(
       llamastack_base_url=os.environ["LLAMASTACK_BASE_URL"],
       input_dir=fetch_task.outputs["output_dir"]
   )
+  process_task.set_caching_options(False)
 
   kubernetes.use_secret_as_env(
       task=fetch_task,
@@ -293,13 +401,43 @@ def full_pipeline():
       secret_name="REPLACE_SECRET_NAME",
       secret_key_to_env=secret_key_to_env)
 
+@dsl.pipeline(name="fetch-and-store-pipeline")
+def url_pipeline():
+    from kfp import kubernetes
+    secret_key_to_env = {
+        'SOURCE': 'SOURCE',
+        'EMBEDDING_MODEL': 'EMBEDDING_MODEL',
+        'NAME': 'NAME',
+        'VERSION': 'VERSION',
+        'URLS': 'URLS'
+    }
+
+    process_task = urls_to_pgvector(
+        llamastack_base_url=os.environ["LLAMASTACK_BASE_URL"]
+    )
+    process_task.set_caching_options(False)
+
+    kubernetes.use_secret_as_env(
+        task=process_task,
+        secret_name="REPLACE_SECRET_NAME",
+        secret_key_to_env=secret_key_to_env
+    )
+
 # 1. Compile pipeline to a file
 pipeline_yaml = "/tmp/fetch_chunk_embed_pipeline.yaml"
 
-compiler.Compiler().compile(
-  pipeline_func=full_pipeline,
-  package_path=pipeline_yaml
-)
+if os.environ.get('SOURCE') == "S3":
+    print("S3 pipeline")
+    compiler.Compiler().compile(
+        pipeline_func=s3_pipeline,
+        package_path=pipeline_yaml
+    )
+elif os.environ.get('SOURCE') == "URL":
+    print("URL pipeline")
+    compiler.Compiler().compile(
+        pipeline_func=url_pipeline,
+        package_path=pipeline_yaml
+    )
 
 import os
 # 2. Connect to KFP
