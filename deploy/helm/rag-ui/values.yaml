@@ -7,7 +7,7 @@ replicaCount: 1
 image:
   repository: quay.io/ecosystem-appeng/llamastack-dist-ui
   pullPolicy: IfNotPresent
-  tag: 0.2.3
+  tag: 0.2.5
 
 imagePullSecrets: []
 nameOverride: ""

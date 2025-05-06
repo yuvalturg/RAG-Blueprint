@@ -15,6 +15,7 @@ MINIO_USER ?= minio_rag_user
 MINIO_PASSWORD ?= minio_rag_password
 RELEASE_NAME ?= rag
 CHART_PATH ?= rag-ui
+HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
 LLM_SERVICE_CHART_PATH ?= llm-service
 LLM_SERVICE_RELEASE_NAME ?= llm-service
 MCP_SERVERS_CHART_PATH ?= mcp-servers
@@ -35,6 +36,8 @@ SECRET_ACCESS_KEY ?= $(MINIO_PASSWORD)
 BUCKET_NAME ?= documents
 ENDPOINT_URL ?= http://minio:9000
 REGION ?= us-east-1
+# PDF file path variable for upload-pdf target
+PDF_FILE = ../../notebooks/Zippity_Zoo.pdf
 
 S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
 
@@ -65,45 +68,6 @@ help:
 namespace:
 	oc create namespace $(NAMESPACE) && oc label namespace $(NAMESPACE) modelmesh-enabled=false ||:
 	oc project $(NAMESPACE) ||:
-
-secrets:
-	@oc get secret -n $(NAMESPACE) huggingface-secret 2>/dev/null || { \
-		echo "Creating Hugging Face secret..."; \
-		bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN; \
-			oc create secret -n $(NAMESPACE) generic huggingface-secret --from-literal=HF_TOKEN="$$HF_TOKEN" --dry-run=client -o yaml | oc apply -f -'; \
-	}
-
-	@oc get secret -n $(NAMESPACE) generic pgvector 2>/dev/null || { \
-		echo "Creating pgvector secret"; \
-		oc create secret -n $(NAMESPACE) generic pgvector \
-			--from-literal=username="$(POSTGRES_USER)" \
-			--from-literal=password="$(POSTGRES_PASSWORD)" \
-			--from-literal=host=pgvector \
-			--from-literal=port=5432 \
-			--from-literal=dbname="$(POSTGRES_DBNAME)"; \
-	}
-
-	@oc get secret -n $(NAMESPACE) minio 2>/dev/null || { \
-		echo "Creating minio secret"; \
-		oc create secret -n $(NAMESPACE) generic minio \
-			--from-literal=username=$(MINIO_USER) \
-			--from-literal=password=$(MINIO_PASSWORD) \
-			--from-literal=host=minio \
-			--from-literal=port=9000; \
-	}
-
-	@echo "Annotating secrets..."
-	oc annotate secret huggingface-secret -n $(NAMESPACE) meta.helm.sh/release-name=$(RELEASE_NAME) meta.helm.sh/release-namespace=$(NAMESPACE) --overwrite
-	oc annotate secret pgvector -n $(NAMESPACE) meta.helm.sh/release-name=rag meta.helm.sh/release-namespace=$(NAMESPACE)
-	oc annotate secret minio -n $(NAMESPACE) meta.helm.sh/release-name=rag meta.helm.sh/release-namespace=$(NAMESPACE)
-
-.PHONY: pg-vector
-pg-vector:
-
-	@echo "Bootstrapping pgvector database"
-	oc rollout -n $(NAMESPACE) status sts/pgvector
-	oc exec -itn $(NAMESPACE) sts/pgvector -- psql -U postgres -c "CREATE DATABASE $(POSTGRES_DBNAME);" ||:
-	oc exec -itn $(NAMESPACE) sts/pgvector -- psql -U postgres -d $(POSTGRES_DBNAME) -c "CREATE EXTENSION VECTOR;" ||:
 
 .PHONY: install-mcp-servers
 install-mcp-servers: namespace
@@ -145,12 +109,12 @@ helm_llm_service_args = \
     $(if $(LLM_TOLERATION),--set-json models.$(LLM).inferenceService.tolerations='$(call TOLERATIONS_TEMPLATE,$(LLM_TOLERATION))',) \
     $(if $(SAFETY_TOLERATION),--set-json models.$(SAFETY).inferenceService.tolerations='$(call TOLERATIONS_TEMPLATE,$(SAFETY_TOLERATION))',)
 
-install-llm-service-%: namespace secrets
+install-llm-service-%: namespace
 	@$(eval HELM_ARGS := $(call helm_llm_service_args))
 
-	@echo "Deploying Helm chart $(LLM_SERVICE_CHART_PATH) as release $(LLM_SERVICE_RELEASE_NAME) in namespace $(NAMESPACE)..."
+	@echo "Deploying Helm chart $(LLM_SERVICE_CHART_PATH) as release $(LLM_SERVICE_RELEASE_NAME) in namespace $(NAMESPACE)..."; \
 	helm upgrade --install $(LLM_SERVICE_RELEASE_NAME) $(LLM_SERVICE_CHART_PATH) -n $(NAMESPACE) --values $(LLM_SERVICE_CHART_PATH)/values-$*.yaml \
-	$(HELM_ARGS) $(EXTRA_HELM_ARGS)
+		--set secret.hf_token=$(HF_TOKEN) $(HELM_ARGS) $(EXTRA_HELM_ARGS)
 	@echo "Waiting for model services to deploy. It will take around 10-15 minutes depending on the size of the model..."
 	oc wait -n $(NAMESPACE) --for=condition=Ready --timeout=60m inferenceservice --all ||:
 
@@ -158,12 +122,18 @@ install-llm-service-%: namespace secrets
 install-llm-service: install-llm-service-gpu
 
 helm_llama_stack_args = \
+    --set pgvector.secret.user=$(POSTGRES_USER) \
+    --set pgvector.secret.password=$(POSTGRES_PASSWORD) \
+    --set pgvector.secret.dbname=$(POSTGRES_DBNAME) \
+    --set minio.secret.user=$(MINIO_USER) \
+    --set minio.secret.password=$(MINIO_PASSWORD) \
     $(if $(LLM),--set-json llama-stack.models.$(LLM).enabled='true',) \
     $(if $(SAFETY),--set-json llama-stack.models.$(SAFETY).enabled='true',) \
     $(if $(LLM_URL),--set-json llama-stack.models.$(LLM).url='"$(LLM_URL)"',) \
     $(if $(SAFETY_URL),--set-json llama-stack.models.$(SAFETY).url='"$(SAFETY_URL)"',) \
     $(if $(LLM_API_TOKEN),--set-json llama-stack.models.$(LLM).apiToken='"$(LLM_API_TOKEN)"',) \
     $(if $(SAFETY_API_TOKEN),--set-json llama-stack.models.$(SAFETY).apiToken='"$(SAFETY_API_TOKEN)"',) \
+    $(if $(TAVILY_SEARCH_API_TOKEN),--set llama-stack.secrets.tavily-search.value=$(TAVILY_SEARCH_API_TOKEN),)
 
 .PHONY: create-minio-bucket
 create-minio-bucket:
@@ -171,19 +141,31 @@ create-minio-bucket:
 	sleep 5
 	oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc mb local/$(BUCKET_NAME)" ||:
 
+.PHONY: upload-pdf
+upload-pdf:
+	@echo "Uploading PDF file $(PDF_FILE) to Minio bucket $(BUCKET_NAME)..."
+	@test -f "$(PDF_FILE)" || { echo "Error: File $(PDF_FILE) not found"; exit 1; }
+	@echo "Waiting for minio-0 pod to be ready..."
+	oc wait -n $(NAMESPACE) --for=condition=Ready pod/minio-0 --timeout=60s
+	@echo "Creating temporary file in minio pod..."
+	cat "$(PDF_FILE)" | oc exec -i -n $(NAMESPACE) minio-0 -- bash -c "cat > /tmp/$(shell basename $(PDF_FILE))"
+	@echo "Uploading file to bucket..."
+	oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc alias set local http://localhost:9000 $(MINIO_USER) $(MINIO_PASSWORD) && mc cp /tmp/$(shell basename $(PDF_FILE)) local/$(BUCKET_NAME)/ && rm /tmp/$(shell basename $(PDF_FILE))"
+	@echo "PDF file $(PDF_FILE) uploaded successfully to Minio bucket $(BUCKET_NAME)"
+
 .PHONY: install-rag
-install-rag: namespace secrets install-mcp-servers
+install-rag: namespace install-mcp-servers
 	@$(eval HELM_ARGS := $(call helm_llama_stack_args))
 
 	@echo "Deploying Helm chart $(CHART_PATH) as release $(RELEASE_NAME) in namespace $(NAMESPACE)..."
 	helm upgrade --install $(RELEASE_NAME) $(CHART_PATH) -n $(NAMESPACE) $(HELM_ARGS) $(EXTRA_HELM_ARGS)
 
-	@$(MAKE) pg-vector
 	@$(MAKE) create-minio-bucket
-
+	@$(MAKE) upload-pdf
 	@$(MAKE) status
 	@$(MAKE) configure-pipeline-server
 	@$(MAKE) create-ingestion-pipeline
+
 
 	@echo "Waiting for deployment to be ready..."
 	@$(MAKE) wait
@@ -236,15 +218,6 @@ uninstall-helm-release:
 
 .PHONY: remove-secrets
 remove-secrets:
-
-	@echo "Removing Hugging Face secret..."
-	oc delete secret -n $(NAMESPACE) huggingface-secret || echo "Secret not found or already removed."
-
-	@echo "Removing pgvector secret"
-	oc delete secret -n $(NAMESPACE) pgvector || echo "Secret not found or already removed."
-
-	@echo "Removing minio secret"
-	oc delete secret -n $(NAMESPACE) minio || echo "Secret not found or already removed."
 
 	@echo "Removing pipeline secret"
 	oc delete secret -n $(NAMESPACE) rag-pipeline-secrets || echo "Secret not found or already removed."

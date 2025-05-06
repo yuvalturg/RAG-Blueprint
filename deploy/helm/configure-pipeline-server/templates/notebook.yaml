@@ -21,7 +21,9 @@ spec:
               echo "Cleaning /opt/app-root/src..." && \
               rm -rf /opt/app-root/src/* && \
               echo "Cloning repo..." && \
-              git clone {{ .Values.notebook.repo }} /opt/app-root/src
+              git clone {{ .Values.notebook.repo }} /tmp/notebook && \
+              cp -r /tmp/notebook/notebooks/* /opt/app-root/src && \
+              rm -rf /tmp/notebook
           volumeMounts:
             - name: pipeline-vol
               mountPath: /opt/app-root/src
