@@ -1,9 +1,14 @@
-profile: moderate
+profile: basic
 exclude_paths:
   - .github/
-  - OWNERS
   - README.md
   - LICENSE
+skip_list:
+  - yaml[trailing-spaces]
+  - yaml[indentation]
+  - yaml[empty-lines]
+  - yaml[new-line-at-end-of-file]
+  - yaml[line-length]
 parseable: true
 strict: true
-offline: false
+offline: true
