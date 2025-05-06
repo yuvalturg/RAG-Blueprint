@@ -23,7 +23,8 @@ def main():
 
     # Playground pages
     chat_page = st.Page("page/playground/chat.py", title="Chat", icon="💬", default=True)
-    rag_page = st.Page("page/playground/rag.py", title="RAG", icon="💬", default=False)
+    # oldchat_page = st.Page("page/playground/oldchat.py", title="oldChat", icon="💬", default=False)
+    # rag_page = st.Page("page/playground/rag.py", title="RAG", icon="💬", default=False)
     tool_page = st.Page("page/playground/tools.py", title="Tools", icon="🛠", default=False)
 
     # Distribution pages
@@ -39,7 +40,8 @@ def main():
         {
             "Playground": [
                 chat_page,
-                rag_page,
+                # newchat_page,
+                # rag_page,
                 tool_page,
                 application_evaluation_page,
                 native_evaluation_page,
