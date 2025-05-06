@@ -131,9 +131,7 @@ tolerations: []
 affinity: {}
 
 secrets:
-  tavily-search:
-    env: TAVILY_SEARCH_API_KEY
-    value:
+  TAVILY_SEARCH_API_KEY: fake
 
 models:
   llama-3-2-3b-instruct:

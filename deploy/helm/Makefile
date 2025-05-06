@@ -133,7 +133,7 @@ helm_llama_stack_args = \
     $(if $(SAFETY_URL),--set-json llama-stack.models.$(SAFETY).url='"$(SAFETY_URL)"',) \
     $(if $(LLM_API_TOKEN),--set-json llama-stack.models.$(LLM).apiToken='"$(LLM_API_TOKEN)"',) \
     $(if $(SAFETY_API_TOKEN),--set-json llama-stack.models.$(SAFETY).apiToken='"$(SAFETY_API_TOKEN)"',) \
-    $(if $(TAVILY_SEARCH_API_TOKEN),--set llama-stack.secrets.tavily-search.value=$(TAVILY_SEARCH_API_TOKEN),)
+    $(if $(LLAMA_STACK_ENV),--set-json llama-stack.secrets='$(LLAMA_STACK_ENV)',)
 
 .PHONY: create-minio-bucket
 create-minio-bucket:
