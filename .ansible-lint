@@ -1,0 +1,9 @@
+profile: moderate
+exclude_paths:
+  - .github/
+  - OWNERS
+  - README.md
+  - LICENSE
+parseable: true
+strict: true
+offline: false
