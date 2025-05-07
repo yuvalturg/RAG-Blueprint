@@ -4,7 +4,11 @@
 # This source code is licensed under the terms described in the LICENSE file in
 # the root directory of this source tree.
 
+"""
+Inspect page: allows browsing and viewing details of Llama Stack resources.
+"""
 from streamlit_option_menu import option_menu
+import streamlit as st
 
 from llama_stack.distribution.ui.page.distribution.datasets import datasets
 from llama_stack.distribution.ui.page.distribution.eval_tasks import benchmarks
@@ -13,9 +17,13 @@ from llama_stack.distribution.ui.page.distribution.scoring_functions import scor
 from llama_stack.distribution.ui.page.distribution.shields import shields
 from llama_stack.distribution.ui.page.distribution.vector_dbs import vector_dbs
 
-
-def resources_page():
+def inspect_page():
+    """
+    Display a horizontal menu to select a resource and show its details.
+    """
+    st.header("🔍 Inspect")
     options = [
+        "API Providers",
         "Models",
         "Vector Databases",
         "Shields",
@@ -23,7 +31,7 @@ def resources_page():
         "Datasets",
         "Benchmarks",
     ]
-    icons = ["magic", "memory", "shield", "file-bar-graph", "database", "list-task"]
+    icons = ["plug", "magic", "memory", "shield", "file-bar-graph", "database", "list-task"]
     selected_resource = option_menu(
         None,
         options,
@@ -47,6 +55,8 @@ def resources_page():
         scoring_functions()
     elif selected_resource == "Shields":
         shields()
+    elif selected_resource == "API Providers":
+        providers()
 
 
-resources_page()
+inspect_page()

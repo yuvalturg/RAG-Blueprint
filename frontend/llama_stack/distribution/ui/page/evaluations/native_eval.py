@@ -1,27 +1,32 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the terms described in the LICENSE file in
-# the root directory of this source tree.
-
 import json
-
 import pandas as pd
 import streamlit as st
 
 from llama_stack.distribution.ui.modules.api import llama_stack_api
 
+"""
+Native Evaluation page: select a benchmark, configure eval candidate, and run full generation + scoring.
+"""
 
 def select_benchmark_1():
-    # Select Benchmarks
+    """
+    Step 1: Let user choose a registered benchmark (eval task).
+    Show error if none available.
+    """
+    # 1. Choose an Eval Task
     st.subheader("1. Choose An Eval Task")
-    benchmarks = llama_stack_api.client.benchmarks.list()
-    benchmarks = {et.identifier: et for et in benchmarks}
-    benchmarks_names = list(benchmarks.keys())
+
+    raw_benchmarks = llama_stack_api.client.benchmarks.list()
+    if not raw_benchmarks:
+        st.error("No benchmarks available. Please register a benchmark first.")
+        return
+
+    benchmarks = {et.identifier: et for et in raw_benchmarks}
+    benchmark_names = list(benchmarks.keys())
     selected_benchmark = st.selectbox(
         "Choose an eval task.",
-        options=benchmarks_names,
-        help="Choose an eval task. Each eval task is parameterized by a dataset, and list of scoring functions.",
+        options=benchmark_names,
+        help="Each eval task is parameterized by a dataset and scoring functions.",
     )
     with st.expander("View Eval Task"):
         st.json(benchmarks[selected_benchmark], expanded=True)
@@ -33,71 +38,42 @@ def select_benchmark_1():
 
 
 def define_eval_candidate_2():
-    if not st.session_state.get("selected_benchmark_1_next", None):
+    """
+    Step 2: After benchmark selection, define generation candidate (model or agent).
+    Store configuration in session state.
+    """
+    # 2. Define Eval Candidate
+    if not st.session_state.get("selected_benchmark_1_next"):
         return
 
     st.subheader("2. Define Eval Candidate")
     st.info(
-        """
-        Define the configurations for the evaluation candidate model or agent used for generation.
-        Select "model" if you want to run generation with inference API, or "agent" if you want to run generation with agent API through specifying AgentConfig.
-        """
+        "Define generation configuration: choose 'model' for inference API or 'agent' for agent API."
     )
+
     with st.expander("Define Eval Candidate", expanded=True):
-        # Define Eval Candidate
         candidate_type = st.radio("Candidate Type", ["model", "agent"])
+        # fetch models
+        raw_models = llama_stack_api.client.models.list()
+        model_ids = [m.identifier for m in raw_models] or []
+        if not model_ids:
+            st.error("No models available in Llama Stack API client.")
+            return
 
-        available_models = llama_stack_api.client.models.list()
-        available_models = [model.identifier for model in available_models]
-        selected_model = st.selectbox(
-            "Choose a model",
-            available_models,
-            index=0,
-        )
+        selected_model = st.selectbox("Choose a model", model_ids)
 
-        # Sampling Parameters
-        st.markdown("##### Sampling Parameters")
-        temperature = st.slider(
-            "Temperature",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.0,
-            step=0.1,
-            help="Controls the randomness of the response. Higher values make the output more creative and unexpected, lower values make it more conservative and predictable",
-        )
-        top_p = st.slider(
-            "Top P",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.95,
-            step=0.1,
-        )
-        max_tokens = st.slider(
-            "Max Tokens",
-            min_value=0,
-            max_value=4096,
-            value=512,
-            step=1,
-            help="The maximum number of tokens to generate",
-        )
-        repetition_penalty = st.slider(
-            "Repetition Penalty",
-            min_value=1.0,
-            max_value=2.0,
-            value=1.0,
-            step=0.1,
-            help="Controls the likelihood for generating the same word or phrase multiple times in the same sentence or paragraph. 1 implies no penalty, 2 will strongly discourage model to repeat words or phrases.",
-        )
+        # sampling params
+        temperature = st.slider("Temperature", 0.0, 1.0, 0.0, 0.1)
+        top_p = st.slider("Top P", 0.0, 1.0, 0.95, 0.05)
+        max_tokens = st.slider("Max Tokens", 0, 4096, 512, 1)
+        repetition_penalty = st.slider("Repetition Penalty", 1.0, 2.0, 1.0, 0.1)
+
         if candidate_type == "model":
-            if temperature > 0.0:
-                strategy = {
-                    "type": "top_p",
-                    "temperature": temperature,
-                    "top_p": top_p,
-                }
-            else:
-                strategy = {"type": "greedy"}
-
+            strategy = (
+                {"type": "greedy"}
+                if temperature == 0.0
+                else {"type": "top_p", "temperature": temperature, "top_p": top_p}
+            )
             eval_candidate = {
                 "type": "model",
                 "model": selected_model,
@@ -107,11 +83,10 @@ def define_eval_candidate_2():
                     "repetition_penalty": repetition_penalty,
                 },
             }
-        elif candidate_type == "agent":
+        else:  # agent
             system_prompt = st.text_area(
                 "System Prompt",
                 value="You are a helpful AI assistant.",
-                help="Initial instructions given to the AI to set its behavior and context",
             )
             tools_json = st.text_area(
                 "Tools Configuration (JSON)",
@@ -122,16 +97,17 @@ def define_eval_candidate_2():
                             "engine": "brave",
                             "api_key": "ENTER_BRAVE_API_KEY_HERE",
                         }
-                    ]
+                    ],
+                    indent=2,
                 ),
-                help="Enter tool configurations in JSON format. Each tool should have a name, description, and parameters.",
                 height=200,
             )
             try:
                 tools = json.loads(tools_json)
             except json.JSONDecodeError:
-                st.error("Invalid JSON format for tools configuration")
+                st.error("Invalid JSON for tools configuration")
                 tools = []
+
             eval_candidate = {
                 "type": "agent",
                 "config": {
@@ -145,6 +121,7 @@ def define_eval_candidate_2():
                     "enable_session_persistence": False,
                 },
             }
+
         st.session_state["eval_candidate"] = eval_candidate
 
     if st.button("Confirm", key="confirm_2"):
@@ -152,99 +129,88 @@ def define_eval_candidate_2():
 
 
 def run_evaluation_3():
-    if not st.session_state.get("selected_eval_candidate_2_next", None):
+    """
+    Step 3: Run evaluation across dataset rows using the selected candidate.
+    Display progress and results in a DataFrame.
+    """
+    # 3. Run Evaluation
+    if not st.session_state.get("selected_eval_candidate_2_next"):
         return
 
     st.subheader("3. Run Evaluation")
-    # Add info box to explain configurations being used
-    st.info(
-        """
-        Review the configurations that will be used for this evaluation run, make any necessary changes, and then click the "Run Evaluation" button.
-        """
-    )
-    selected_benchmark = st.session_state["selected_benchmark"]
-    benchmarks = st.session_state["benchmarks"]
-    eval_candidate = st.session_state["eval_candidate"]
+    st.info("Review configurations and click 'Run Evaluation' to start.")
+
+    benchmarks = st.session_state.get("benchmarks", {})
+    selected_benchmark = st.session_state.get("selected_benchmark")
+    if not benchmarks or not selected_benchmark:
+        st.error("Missing benchmark selection. Please complete step 1.")
+        return
+
+    eval_candidate = st.session_state.get("eval_candidate")
+    if not eval_candidate:
+        st.error("Missing eval candidate. Please complete step 2.")
+        return
 
     dataset_id = benchmarks[selected_benchmark].dataset_id
-    rows = llama_stack_api.client.datasets.iterrows(
-        dataset_id=dataset_id,
-    )
-    total_rows = len(rows.data)
-    # Add number of examples control
+    rows_iter = llama_stack_api.client.datasets.iterrows(dataset_id=dataset_id)
+    data_rows = getattr(rows_iter, "data", [])
+    if not data_rows:
+        st.error(f"No data found for dataset '{dataset_id}'.")
+        return
+
+    total = len(data_rows)
     num_rows = st.number_input(
         "Number of Examples to Evaluate",
         min_value=1,
-        max_value=total_rows,
-        value=5,
-        help="Number of examples from the dataset to evaluate. ",
+        max_value=total,
+        value=min(5, total),
     )
 
-    benchmark_config = {
-        "type": "benchmark",
-        "eval_candidate": eval_candidate,
-        "scoring_params": {},
-    }
+    benchmark_config = {"type": "benchmark", "eval_candidate": eval_candidate, "scoring_params": {}}
 
-    with st.expander("View Evaluation Task", expanded=True):
+    with st.expander("View Benchmark", expanded=True):
         st.json(benchmarks[selected_benchmark], expanded=True)
-    with st.expander("View Evaluation Task Configuration", expanded=True):
+    with st.expander("View Config", expanded=True):
         st.json(benchmark_config, expanded=True)
 
-    # Add run button and handle evaluation
     if st.button("Run Evaluation"):
-        progress_text = "Running evaluation..."
-        progress_bar = st.progress(0, text=progress_text)
-        rows = rows.data
-        if num_rows < total_rows:
-            rows = rows[:num_rows]
+        progress_bar = st.progress(0)
+        text_cont = st.empty()
+        res_cont = st.empty()
+        output = {}
 
-        # Create separate containers for progress text and results
-        progress_text_container = st.empty()
-        results_container = st.empty()
-        output_res = {}
-        for i, r in enumerate(rows):
-            # Update progress
-            progress = i / len(rows)
-            progress_bar.progress(progress, text=progress_text)
-            # Run evaluation for current row
+        for i, row in enumerate(data_rows[:num_rows]):
+            progress = (i + 1) / num_rows
+            progress_bar.progress(progress)
+            text_cont.write(f"Processing row {i + 1}/{num_rows}")
+
             eval_res = llama_stack_api.client.eval.evaluate_rows(
                 benchmark_id=selected_benchmark,
-                input_rows=[r],
+                input_rows=[row],
                 scoring_functions=benchmarks[selected_benchmark].scoring_functions,
                 benchmark_config=benchmark_config,
             )
 
-            for k in r.keys():
-                if k not in output_res:
-                    output_res[k] = []
-                output_res[k].append(r[k])
+            # accumulate inputs
+            for k, v in row.items():
+                output.setdefault(k, []).append(v)
+            # accumulate generations & scores
+            for gen_key, gen_val in eval_res.generations[0].items():
+                output.setdefault(gen_key, []).append(gen_val)
+            for fn in benchmarks[selected_benchmark].scoring_functions:
+                score = eval_res.scores[fn].score_rows[0]
+                output.setdefault(fn, []).append(score)
 
-            for k in eval_res.generations[0].keys():
-                if k not in output_res:
-                    output_res[k] = []
-                output_res[k].append(eval_res.generations[0][k])
+            res_cont.json(eval_res, expanded=2)
 
-            for scoring_fn in benchmarks[selected_benchmark].scoring_functions:
-                if scoring_fn not in output_res:
-                    output_res[scoring_fn] = []
-                output_res[scoring_fn].append(eval_res.scores[scoring_fn].score_rows[0])
-
-            progress_text_container.write(f"Expand to see current processed result ({i + 1} / {len(rows)})")
-            results_container.json(eval_res, expanded=2)
-
-        progress_bar.progress(1.0, text="Evaluation complete!")
-        # Display results in dataframe
-        if output_res:
-            output_df = pd.DataFrame(output_res)
-            st.subheader("Evaluation Results")
-            st.dataframe(output_df)
+        st.success("Evaluation complete!")
+        df_out = pd.DataFrame(output)
+        st.subheader("Evaluation Results")
+        st.dataframe(df_out)
 
 
 def native_evaluation_page():
-    st.set_page_config(page_title="Evaluations (Generation + Scoring)", page_icon="🦙")
-    st.title("📊 Evaluations (Generation + Scoring)")
-
+    # Compose the three steps in order
     select_benchmark_1()
     define_eval_candidate_2()
     run_evaluation_3()

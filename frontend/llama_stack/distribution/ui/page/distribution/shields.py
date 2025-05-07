@@ -10,10 +10,17 @@ from llama_stack.distribution.ui.modules.api import llama_stack_api
 
 
 def shields():
-    # Shields Section
+    """
+    Inspect available shields and display details for a selected one.
+    """
     st.header("Shields")
+    # Retrieve all shields
+    shields_list = llama_stack_api.client.shields.list()
+    if not shields_list:
+        st.info("No shields available.")
+        return
+    shields_info = {s.identifier: s.to_dict() for s in shields_list}
 
-    shields_info = {s.identifier: s.to_dict() for s in llama_stack_api.client.shields.list()}
-
+    # Let user select and view shield details
     selected_shield = st.selectbox("Select a shield", list(shields_info.keys()))
     st.json(shields_info[selected_shield])
