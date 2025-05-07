@@ -15,6 +15,7 @@ from llama_stack.distribution.ui.page.distribution.eval_tasks import benchmarks
 from llama_stack.distribution.ui.page.distribution.models import models
 from llama_stack.distribution.ui.page.distribution.scoring_functions import scoring_functions
 from llama_stack.distribution.ui.page.distribution.shields import shields
+from llama_stack.distribution.ui.page.distribution.providers import providers
 from llama_stack.distribution.ui.page.distribution.vector_dbs import vector_dbs
 
 def inspect_page():
@@ -26,12 +27,9 @@ def inspect_page():
         "API Providers",
         "Models",
         "Vector Databases",
-        "Shields",
-        "Scoring Functions",
-        "Datasets",
-        "Benchmarks",
+        "Shields"
     ]
-    icons = ["plug", "magic", "memory", "shield", "file-bar-graph", "database", "list-task"]
+    icons = ["plug", "magic", "memory", "shield"]
     selected_resource = option_menu(
         None,
         options,
@@ -43,16 +41,11 @@ def inspect_page():
             },
         },
     )
-    if selected_resource == "Benchmarks":
-        benchmarks()
-    elif selected_resource == "Vector Databases":
+
+    if selected_resource == "Vector Databases":
         vector_dbs()
-    elif selected_resource == "Datasets":
-        datasets()
     elif selected_resource == "Models":
         models()
-    elif selected_resource == "Scoring Functions":
-        scoring_functions()
     elif selected_resource == "Shields":
         shields()
     elif selected_resource == "API Providers":

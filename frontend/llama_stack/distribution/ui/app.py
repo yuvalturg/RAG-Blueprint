@@ -9,7 +9,6 @@ def main():
     # Define available pages: path and icon
     pages = {
         "Chat": ("page/playground/chat.py", "💬"),
-        "Evaluations": ("page/evaluations/evaluations.py", "📊"),
         "Inspect": ("page/distribution/inspect.py", "🔍"),
         "Upload": ("page/upload/upload.py", "📄"),
     }
