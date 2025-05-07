@@ -11,7 +11,16 @@ import pandas as pd
 import streamlit as st
 
 
+"""
+Utility functions for file processing and data conversion in the UI.
+"""
+
+
 def process_dataset(file):
+    """
+    Read an uploaded file into a Pandas DataFrame or return error messages.
+    Supports CSV and Excel formats.
+    """
     if file is None:
         return "No file uploaded", None
 
@@ -23,6 +32,7 @@ def process_dataset(file):
         elif file_ext in [".xlsx", ".xls"]:
             df = pd.read_excel(file)
         else:
+            # Unsupported extension
             return "Unsupported file format. Please upload a CSV or Excel file.", None
 
         return df
@@ -33,6 +43,10 @@ def process_dataset(file):
 
 
 def data_url_from_file(file) -> str:
+    """
+    Convert uploaded file content to a base64-encoded data URL.
+    Used for embedding documents for vector DB ingestion.
+    """
     file_content = file.getvalue()
     base64_content = base64.b64encode(file_content).decode("utf-8")
     mime_type = file.type

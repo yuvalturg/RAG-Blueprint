@@ -10,18 +10,25 @@ from llama_stack.distribution.ui.modules.api import llama_stack_api
 
 
 def providers():
-    st.header("🔍 API Providers")
-    apis_providers_lst = llama_stack_api.client.providers.list()
-    api_to_providers = {}
-    for api_provider in apis_providers_lst:
-        if api_provider.api in api_to_providers:
-            api_to_providers[api_provider.api].append(api_provider)
-        else:
-            api_to_providers[api_provider.api] = [api_provider]
+    """
+    Inspect available API providers by API type and display details.
+    """
+    st.header("API Providers")
+    # Retrieve all providers
+    providers_list = llama_stack_api.client.providers.list()
+    if not providers_list:
+        st.info("No API providers registered.")
+        return
 
-    for api in api_to_providers.keys():
-        st.markdown(f"###### {api}")
-        st.dataframe([x.to_dict() for x in api_to_providers[api]], width=500)
+    # Group providers by API name
+    api_to_providers: dict[str, list] = {}
+    for p in providers_list:
+        api_to_providers.setdefault(p.api, []).append(p)
+
+    # Display each group with its providers
+    for api_name, providers in api_to_providers.items():
+        st.markdown(f"###### {api_name}")
+        st.dataframe([p.to_dict() for p in providers], width=500)
 
 
-providers()
+

@@ -9,7 +9,6 @@ from typing import Optional
 
 from llama_stack_client import LlamaStackClient
 
-
 class LlamaStackApi:
     def __init__(self):
         self.client = LlamaStackClient(
