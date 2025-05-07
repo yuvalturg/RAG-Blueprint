@@ -172,15 +172,15 @@ def tool_chat_page():
                  st.caption("No vector databases available.")
 
         selected_mcp_tools = []
-        if processing_mode == "Agent-based":
-            selected_mcp_tools = st.multiselect(
-                label="MCP Servers",
-                options=mcp_tools_list,
-                default=[],
-                on_change=reset_agent_and_chat,
-                format_func=lambda tool: "".join(tool.split("::")[1:]),
-                help="Select tools hosted on MCP servers.",
-            )
+        # if processing_mode == "Agent-based":
+        #     selected_mcp_tools = st.multiselect(
+        #         label="MCP Servers",
+        #         options=mcp_tools_list,
+        #         default=[],
+        #         on_change=reset_agent_and_chat,
+        #         format_func=lambda tool: "".join(tool.split("::")[1:]),
+        #         help="Select tools hosted on MCP servers.",
+        #     )
 
         agent_toolgroup_selection = []
         if processing_mode == "Agent-based":
