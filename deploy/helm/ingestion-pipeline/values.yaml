@@ -20,4 +20,8 @@ GITHUB:
   token: auth_token
   branch: ""
 
-URLS: []
+URL: 
+  URLS: 
+  - "https://arxiv.org/pdf/2408.09869"
+  - "https://github.com/docling-project/docling/blob/main/tests/data/pdf/2206.01062.pdf"
+

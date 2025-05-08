@@ -24,6 +24,8 @@ spec:
               value: "http://llamastack.{{ .Release.Namespace }}.svc.cluster.local:8321"
             - name: DS_PIPELINE_URL
               value: "https://ds-pipeline-dspa.{{ .Release.Namespace }}.svc.cluster.local:8888"
+            - name: SOURCE
+              value: "{{ .Values.source }}"
           image: python:3.10-slim
           imagePullPolicy: IfNotPresent
           name: create-ingestion-pipeline
