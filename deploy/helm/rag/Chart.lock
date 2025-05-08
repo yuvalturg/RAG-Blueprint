@@ -1,0 +1,24 @@
+dependencies:
+- name: pgvector
+  repository: https://rhecosystemappeng.github.io/ai-architecture-charts
+  version: 0.1.0
+- name: minio
+  repository: https://rhecosystemappeng.github.io/ai-architecture-charts
+  version: 0.1.0
+- name: mcp-weather
+  repository: https://rhecosystemappeng.github.io/ai-architecture-charts
+  version: 0.1.0
+- name: llm-service
+  repository: https://rhecosystemappeng.github.io/ai-architecture-charts
+  version: 0.1.0
+- name: configure-pipeline
+  repository: https://rhecosystemappeng.github.io/ai-architecture-charts
+  version: 0.1.0
+- name: ingestion-pipeline
+  repository: https://rhecosystemappeng.github.io/ai-architecture-charts
+  version: 0.1.0
+- name: llama-stack
+  repository: https://rhecosystemappeng.github.io/ai-architecture-charts
+  version: 0.1.0
+digest: sha256:55422dd7f20d6f49558bba2e358be9e4d460447d61e22af3f5f58f952d6ec76b
+generated: "2025-05-08T14:21:18.995865667-04:00"

@@ -1,3 +1,0 @@
-mcp_servers:
-  - name: weather
-    url: http://mcp-servers-weather:8000/sse

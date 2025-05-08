@@ -1,7 +1,7 @@
 # Makefile for RAG Deployment
 # Replaces the original deploy.sh script with additional uninstall functionality
 ifeq ($(NAMESPACE),)
-ifeq (,$(filter list-models% help,$(MAKECMDGOALS)))
+ifeq (,$(filter depend list-models% help,$(MAKECMDGOALS)))
 $(error NAMESPACE is not set)
 endif
 endif
@@ -15,15 +15,7 @@ POSTGRES_DBNAME ?= rag_blueprint
 MINIO_USER ?= minio_rag_user
 MINIO_PASSWORD ?= minio_rag_password
 HF_TOKEN ?= $(shell bash -c 'read -r -p "Enter Hugging Face Token: " HF_TOKEN; echo $$HF_TOKEN')
-LLM_SERVICE_CHART := llm-service
-LLAMA_STACK_CHART := llama-stack
-MCP_SERVERS_CHART := mcp-servers
-PGVECTOR_CHART := pgvector
-MINIO_CHART := minio
-RAG_UI_CHART := rag-ui
-INGESTION_PIPELINE_CHART := ingestion-pipeline
-CONFIGURE_PIPELINE_SERVER_CHART := configure-pipeline-server
-COMPONENTS := $(LLM_SERVICE_CHART) $(MCP_SERVERS_CHART) $(PGVECTOR_CHART) $(MINIO_CHART) $(RAG_UI_CHART) $(INGESTION_PIPELINE_CHART) $(CONFIGURE_PIPELINE_SERVER_CHART) $(LLAMA_STACK_CHART)
+RAG_CHART := rag
 TOLERATIONS_TEMPLATE=[{"key":"$(1)","effect":"NoSchedule","operator":"Exists"}]
 
 #ingestion pipeline configuration
@@ -38,20 +30,48 @@ ENDPOINT_URL ?= http://minio:9000
 REGION ?= us-east-1
 # PDF file path variable for upload-pdf target
 PDF_DIR = ../../notebooks
-
 S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
+
+helm_pgvector_args = \
+    --set pgvector.secret.user=$(POSTGRES_USER) \
+    --set pgvector.secret.password=$(POSTGRES_PASSWORD) \
+    --set pgvector.secret.dbname=$(POSTGRES_DBNAME)
+
+helm_minio_args = \
+    --set minio.secret.user=$(MINIO_USER) \
+    --set minio.secret.password=$(MINIO_PASSWORD)
+
+helm_llm_service_args = \
+    --set llm-service.secret.hf_token=$(HF_TOKEN) \
+    $(if $(LLM),--set global.models.$(LLM).enabled=true,) \
+    $(if $(SAFETY),--set global.models.$(SAFETY).enabled=true,) \
+    $(if $(LLM_TOLERATION),--set-json global.models.$(LLM).tolerations='$(call TOLERATIONS_TEMPLATE,$(LLM_TOLERATION))',) \
+    $(if $(SAFETY_TOLERATION),--set-json global.models.$(SAFETY).tolerations='$(call TOLERATIONS_TEMPLATE,$(SAFETY_TOLERATION))',)
+
+helm_llama_stack_args = \
+    $(if $(LLM),--set global.models.$(LLM).enabled=true,) \
+    $(if $(SAFETY),--set global.models.$(SAFETY).enabled=true,) \
+    $(if $(LLM_URL),--set global.models.$(LLM).url='$(LLM_URL)',) \
+    $(if $(SAFETY_URL),--set global.models.$(SAFETY).url='$(SAFETY_URL)',) \
+    $(if $(LLM_API_TOKEN),--set global.models.$(LLM).apiToken='$(LLM_API_TOKEN)',) \
+    $(if $(SAFETY_API_TOKEN),--set global.models.$(SAFETY).apiToken='$(SAFETY_API_TOKEN)',) \
+    $(if $(LLAMA_STACK_ENV),--set-json llama-stack.secrets='$(LLAMA_STACK_ENV)',)
+
+helm_ingestion_args = \
+	$(if $(SOURCE),--set ingestion-pipeline.source='$(SOURCE)',) \
+	$(if $(EMBEDDING_MODEL),--set ingestion-pipeline.embedding_model='$(EMBEDDING_MODEL)',) \
+	$(if $(INGESTION_PIPELINE_NAME),--set ingestion-pipeline.name='$(INGESTION_PIPELINE_NAME)',) \
+	$(if $(INGESTION_PIPELINE_VERSION),--set ingestion-pipeline.version='$(INGESTION_PIPELINE_VERSION)',) \
+    $(if $(SOURCE),--set-json ingestion-pipeline.S3='$(call S3_TEMPLATE,$(ACCESS_KEY_ID),$(SECRET_ACCESS_KEY),$(BUCKET_NAME),$(ENDPOINT_URL),$(REGION))',)
 
 # Default target
 .PHONY: help
 help:
 	@echo "Available targets:"
+	@echo "  list-models   - List available models"
 	@echo "  install       - Install the RAG deployment (creates namespace, secrets, and deploys Helm chart)"
-	@echo "  install-cpu   - Install the RAG deployment without GPU (creates namespace, secrets, and deploys Helm chart)"
 	@echo "  uninstall     - Uninstall the RAG deployment and clean up resources"
 	@echo "  status        - Check status of the deployment"
-	@echo "  wait          - Wait for all pods to be ready and verify deployment health"
-	@echo "  list-models       - List available models for GPU"
-	@echo "  list-models-cpu   - List available models for CPU"
 	@echo ""
 	@echo "Configuration options (set via environment variables or make arguments):"
 	@echo "  NAMESPACE                - Target namespace (default: llama-stack-rag)"
@@ -66,75 +86,67 @@ namespace:
 	@oc create namespace $(NAMESPACE) &> /dev/null && oc label namespace $(NAMESPACE) modelmesh-enabled=false ||:
 	@oc project $(NAMESPACE) &> /dev/null ||:
 
-helm-install-%: namespace
-	$(if $(HELM_ARGS_FUNC), $(eval HELM_ARGS := $(call $(HELM_ARGS_FUNC))))
-	@echo "$*: Deploying Helm chart in namespace $(NAMESPACE)..."
-	@helm upgrade --install $* ./$* -n $(NAMESPACE) $(HELM_ARGS) $(EXTRA_HELM_ARGS) > /dev/null && echo "$*: Helm chart installed successfully"
-
-helm-uninstall-%:
-	@echo "$*: Uninstalling Helm chart from namespace $(NAMESPACE)..."
-	@helm uninstall $* -n $(NAMESPACE) &> /dev/null || echo "$* is not installed or already removed."
-
-list-models-%:
-	@helm template dummy-release $(LLM_SERVICE_CHART) --set _debugListModels=true --values $(LLM_SERVICE_CHART)/values-$*.yaml |grep ^model
+.PHONY: depend
+depend:
+	@echo "Updating Helm dependencies"
+	@helm dependency update $(RAG_CHART) &> /dev/null
 
 .PHONY: list-models
-list-models: list-models-gpu
+list-models: depend
+	@helm template dummy-release $(RAG_CHART) --set llm-service._debugListModels=true | grep ^model:
 
-
-helm_llm_service_args = \
-    --set secret.hf_token=$(HF_TOKEN) \
-    $(if $(LLM),--set models.$(LLM).enabled=true,) \
-    $(if $(SAFETY),--set models.$(SAFETY).enabled=true,) \
-    $(if $(LLM_TOLERATION),--set-json models.$(LLM).inferenceService.tolerations='$(call TOLERATIONS_TEMPLATE,$(LLM_TOLERATION))',) \
-    $(if $(SAFETY_TOLERATION),--set-json models.$(SAFETY).inferenceService.tolerations='$(call TOLERATIONS_TEMPLATE,$(SAFETY_TOLERATION))',)
-
-install-llm-service-%: namespace
-	@$(MAKE) helm-install-$(LLM_SERVICE_CHART) HELM_ARGS_FUNC=helm_llm_service_args EXTRA_HELM_ARGS="--values=$(LLM_SERVICE_CHART)/values-$*.yaml "
-	@echo "Waiting for model services to deploy. It will take around 10-15 minutes depending on the size of the model..."
-	@oc wait -n $(NAMESPACE) --for=condition=Ready --timeout=60m inferenceservice --all ||:
-
-.PHONY: install-llm-service
-install-llm-service: install-llm-service-gpu
-
-helm_pgvector_args = \
-    --set secret.user=$(POSTGRES_USER) \
-    --set secret.password=$(POSTGRES_PASSWORD) \
-    --set secret.dbname=$(POSTGRES_DBNAME)
-
-helm_minio_args = \
-    --set secret.user=$(MINIO_USER) \
-    --set secret.password=$(MINIO_PASSWORD)
-
-helm_llama_stack_args = \
-    $(if $(LLM),--set models.$(LLM).enabled=true,) \
-    $(if $(SAFETY),--set models.$(SAFETY).enabled=true,) \
-    $(if $(LLM_URL),--set models.$(LLM).url='$(LLM_URL)',) \
-    $(if $(SAFETY_URL),--set models.$(SAFETY).url='$(SAFETY_URL)',) \
-    $(if $(LLM_API_TOKEN),--set models.$(LLM).apiToken='$(LLM_API_TOKEN)',) \
-    $(if $(SAFETY_API_TOKEN),--set models.$(SAFETY).apiToken='$(SAFETY_API_TOKEN)',) \
-    $(if $(LLAMA_STACK_ENV),--set-json secrets='$(LLAMA_STACK_ENV)',)
-
-set_ingestion_args = \
-	$(if $(SOURCE),--set source='$(SOURCE)',) \
-	$(if $(EMBEDDING_MODEL),--set embedding_model='$(EMBEDDING_MODEL)',) \
-	$(if $(INGESTION_PIPELINE_NAME),--set name='$(INGESTION_PIPELINE_NAME)',) \
-	$(if $(INGESTION_PIPELINE_VERSION),--set version='$(INGESTION_PIPELINE_VERSION)',) \
-    $(if $(SOURCE),--set-json S3='$(call S3_TEMPLATE,$(ACCESS_KEY_ID),$(SECRET_ACCESS_KEY),$(BUCKET_NAME),$(ENDPOINT_URL),$(REGION))',)
-
-.PHONY: install-rag
-install-rag: namespace helm-install-$(MCP_SERVERS_CHART) helm-install-$(PGVECTOR_CHART) helm-install-$(MINIO_CHART)
-	@$(MAKE) helm-install-$(PGVECTOR_CHART) HELM_ARGS_FUNC=helm_pgvector_args
-	@$(MAKE) helm-install-$(MINIO_CHART) HELM_ARGS_FUNC=helm_minio_args
-	@$(MAKE) helm-install-$(LLAMA_STACK_CHART) HELM_ARGS_FUNC=helm_llama_stack_args
-	@$(MAKE) helm-install-$(RAG_UI_CHART)
+.PHONY: install
+install: namespace depend
+	@$(eval PGVECTOR_ARGS := $(call helm_pgvector_args))
+	@$(eval MINIO_ARGS := $(call helm_minio_args))
+	@$(eval LLM_SERVICE_ARGS := $(call helm_llm_service_args))
+	@$(eval LLAMA_STACK_ARGS := $(call helm_llama_stack_args))
+	@$(eval INGESTION_ARGS := $(call helm_ingestion_args))
+	@echo "Installing $(RAG_CHART) helm chart"
+	@helm upgrade --install $(RAG_CHART) $(RAG_CHART) -n $(NAMESPACE) \
+		$(PGVECTOR_ARGS) \
+		$(MINIO_ARGS) \
+		$(LLM_SERVICE_ARGS) \
+		$(LLAMA_STACK_ARGS) \
+		$(INGESTION_ARGS) \
+		$(EXTRA_HELM_ARGS)
+	@echo "Waiting for model services and llamastack to deploy. It may take around 10-15 minutes depending on the size of the model..."
+	@oc rollout status deploy/llamastack
 	@$(MAKE) create-minio-bucket
 	@$(MAKE) upload-pdf
+	@echo "$(RAG_CHART) installed successfully"
+
+# Uninstall the deployment and clean up
+.PHONY: uninstall
+uninstall:
+	@echo "Uninstalling $(RAG_CHART) helm chart"
+	@helm uninstall $(RAG_CHART)
+	@echo "Removing pgvector and minio PVCs from $(NAMESPACE)"
+	@oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name | grep -E '^(pg|minio)-data' | xargs -I {} oc delete pvc -n $(NAMESPACE) {} ||:
+	@echo "Deleting remaining pods in namespace $(NAMESPACE)"
+	@oc delete pods -n $(NAMESPACE) --all
+	@echo "Checking for any remaining resources in namespace $(NAMESPACE)..."
+	@echo "If you want to completely remove the namespace, run: oc delete project $(NAMESPACE)"
+	@echo "Remaining resources in namespace $(NAMESPACE):"
 	@$(MAKE) status
-	@$(MAKE) helm-install-$(CONFIGURE_PIPELINE_SERVER_CHART)
-	@$(MAKE) helm-install-$(INGESTION_PIPELINE_CHART) HELM_ARGS_FUNC=set_ingestion_args ||:
-	@echo "Waiting for deployment to be ready..."
-	@$(MAKE) wait
+
+# Check deployment status
+.PHONY: status
+status:
+	@echo "Listing pods..."
+	oc get pods -n $(NAMESPACE) || true
+
+	@echo "Listing services..."
+	oc get svc -n $(NAMESPACE) || true
+
+	@echo "Listing routes..."
+	oc get routes -n $(NAMESPACE) || true
+
+	@echo "Listing secrets..."
+	oc get secrets -n $(NAMESPACE) | grep huggingface-secret || true
+
+	@echo "Listing pvcs..."
+	oc get pvc -n $(NAMESPACE) || true
 
 .PHONY: create-minio-bucket
 create-minio-bucket:
@@ -164,77 +176,4 @@ upload-pdf:
 		mc mv local/$(BUCKET_NAME)/$${temp_name} \"local/$(BUCKET_NAME)/$${orig_name}\" && \
 		rm /tmp/$${temp_name}"; \
 		echo "PDF file '$${pdf_file}' uploaded successfully to Minio bucket $(BUCKET_NAME)"; \
-	done
-
-install-gpu: install-llm-service-gpu install-rag
-install-cpu: install-llm-service-cpu install-rag
-
-.PHONY: install
-install: install-gpu
-
-# Uninstall the deployment and clean up
-.PHONY: uninstall
-uninstall: $(addprefix helm-uninstall-,$(COMPONENTS)) remove-pvcs
-	@echo "Deleting remaining pods in namespace $(NAMESPACE)"
-	@oc delete pods -n $(NAMESPACE) --all
-	@echo "Checking for any remaining resources in namespace $(NAMESPACE)..."
-	@echo "If you want to completely remove the namespace, run: oc delete project $(NAMESPACE)"
-	@echo "Remaining resources in namespace $(NAMESPACE):"
-	@$(MAKE) status
-
-.PHONY: remove-pvcs
-remove-pvcs:
-	@echo "Removing pgvector and minio PVCs"
-	@oc get pvc -n $(NAMESPACE) -o custom-columns=NAME:.metadata.name | grep -E '^(pg|minio)-data' | xargs -I {} oc delete pvc -n $(NAMESPACE) {} ||:
-
-# Check deployment status
-.PHONY: status
-status:
-	@echo "Listing pods..."
-	oc get pods -n $(NAMESPACE) || true
-
-	@echo "Listing services..."
-	oc get svc -n $(NAMESPACE) || true
-
-	@echo "Listing routes..."
-	oc get routes -n $(NAMESPACE) || true
-
-	@echo "Listing secrets..."
-	oc get secrets -n $(NAMESPACE) | grep huggingface-secret || true
-
-	@echo "Listing pvcs..."
-	oc get pvc -n $(NAMESPACE) || true
-
-# Wait for all pods to be ready
-.PHONY: wait
-wait:
-
-	@echo "Delete failed jobs in namespace $(NAMESPACE)..."
-	oc get pods -n $(NAMESPACE) --field-selector=status.phase=Failed -o jsonpath='{range .items[?(@.metadata.ownerReferences[0].kind=="Job")]}{.metadata.namespace}{";"}{.metadata.name}{"\n"}{end}' | while IFS=";" read ns pod; do \
-	  echo "Deleting FAILED pod $$pod from namespace $$ns"; \
-	  oc delete pod "$$pod" -n "$$ns"; \
-	done
-
-	@echo "Waiting for all pods to be ready in namespace $(NAMESPACE)..."
-	@end=$$(($$(date +%s)+60)); \
-	while [ $$(date +%s) -lt $$end ]; do \
-	  not_ready=$$(kubectl get pods --no-headers | grep -vE 'Running|Succeeded|Completed'); \
-	  if [ -z "$$not_ready" ]; then \
-	    echo "All pods are Ready or Completed."; \
-		break; \
-	  fi; \
-	  sleep 2; \
-	done; \
-	echo "Timeout: Some pods are not Ready or Completed."; \
-
-	@echo "Verifying routes are accessible..."
-	@for route in $(oc get routes -n $(NAMESPACE) -o name); do \
-		echo "Checking route ${route}..."; \
-		host=$(oc get ${route} -n $(NAMESPACE) -o jsonpath='{.spec.host}'); \
-		if [ -n "${host}" ]; then \
-			echo "Route hostname: ${host}"; \
-			echo "Note: Manual verification of route accessibility is recommended"; \
-		else \
-			echo "WARNING: No hostname found for ${route}"; \
-		fi; \
 	done
