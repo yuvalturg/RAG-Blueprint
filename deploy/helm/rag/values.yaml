@@ -1,0 +1,60 @@
+replicaCount: 1
+
+image:
+  repository: quay.io/ecosystem-appeng/llamastack-dist-ui
+  pullPolicy: IfNotPresent
+  tag: 0.2.5
+
+service:
+  type: ClusterIP
+  port: 8501
+
+serviceAccount:
+  create: false
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+
+env:
+  - name: LLAMA_STACK_ENDPOINT
+    value: 'http://llamastack:8321'
+
+volumes:
+  - emptyDir: {}
+    name: dot-streamlit
+
+volumeMounts:
+  - mountPath: /.streamlit
+    name: dot-streamlit
+
+# Common model values for llm-service and llama-stack
+# See format in https://github.com/RHEcosystemAppEng/ai-architecture-charts/blob/main/helm/llm-service/values.yaml
+global:
+  models: {}
+
+pgvector:
+  secret:
+    user: postgres
+    password: rag_password
+    dbname: rag_blueprint
+    host: pgvector
+    port: "5432"
+
+minio:
+  secret:
+    user: minio_rag_user
+    password: minio_rag_password
+    host: minio
+    port: "9000"
+
+llama-stack:
+  mcp-servers:
+     mcp-weather:
+      uri: http://rag-mcp-weather:8000/sse

@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "pgvector.fullname" . }}
+  name: {{ include "rag.fullname" . }}
   labels:
-    {{- include "pgvector.labels" . | nindent 4 }}
+    {{- include "rag.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -12,4 +12,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "pgvector.selectorLabels" . | nindent 4 }}
+    {{- include "rag.selectorLabels" . | nindent 4 }}
