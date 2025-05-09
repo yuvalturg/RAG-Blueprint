@@ -34,13 +34,11 @@ volumeMounts:
   - mountPath: /.streamlit
     name: dot-streamlit
 
-# Common values for multiple subcharts
+# Common model values for llm-service and llama-stack
+# See format in https://github.com/RHEcosystemAppEng/ai-architecture-charts/blob/main/helm/llm-service/values.yaml
 global:
-  mcp-servers:
-    mcp-weather:
-      enabled: true
-      uri: http://rag-mcp-weather:8000/sse
- 
+  models: {}
+
 pgvector:
   secret:
     user: postgres
@@ -55,3 +53,8 @@ minio:
     password: minio_rag_password
     host: minio
     port: "9000"
+
+llama-stack:
+  mcp-servers:
+     mcp-weather:
+      uri: http://rag-mcp-weather:8000/sse
