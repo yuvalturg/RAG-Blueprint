@@ -36,6 +36,31 @@ volumeMounts:
 
 # Common model values for llm-service and llama-stack
 # See format in https://github.com/RHEcosystemAppEng/ai-architecture-charts/blob/main/helm/llm-service/values.yaml
+# For e.g., to add a new model add the following block and it will append to the list of models defined in the llm-service
+
+# global:
+#   models:
+#     granite-vision-3-2-2b:
+#     id: ibm-granite/granite-vision-3.2-2b
+#     enabled: true
+#     inferenceService:
+#       resources:
+#         limits:
+#           nvidia.com/gpu: "1"
+#       tolerations:
+#        - key: "nvidia.com/gpu"
+#          operator: Exists
+#          effect: NoSchedule
+#       args:
+#       - --tensor-parallel-size
+#       - "1"
+#       - --max-model-len
+#       - "6144"
+#       - --enable-auto-tool-choice
+#       - --tool-call-parser
+#       - granite
+
+
 global:
   models: {}
 
