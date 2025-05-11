@@ -26,6 +26,7 @@ def get_strategy(temperature, top_p):
             'type': 'top_p', 'temperature': temperature, 'top_p': top_p
         }
 
+
 def render_history(tool_debug):
     """Renders the chat history from session state.
     Also displays debug events for assistant messages if tool_debug is enabled.
@@ -176,19 +177,20 @@ def tool_chat_page():
                     for idx, tool in enumerate(tools, start=1):
                         st.markdown(f"{idx}. `{tool.split(':')[-1]}`")
 
-            st.subheader("Agent Configurations")
-            st.subheader("Agent Type")
-            agent_type = st.radio(
-                label="Select Agent Type",
-                options=["Regular", "ReAct"],
-                on_change=reset_agent,
-            )
+            # st.subheader("Agent Configurations")
+            # st.subheader("Agent Type")
+            # agent_type = st.radio(
+            #     label="Select Agent Type",
+            #     options=["Regular", "ReAct"],
+            #     on_change=reset_agent,
+            # )
 
-            if agent_type == "ReAct":
-                agent_type = AgentType.REACT
-            else:
-                agent_type = AgentType.REGULAR
+            # if agent_type == "ReAct":
+            #     agent_type = AgentType.REACT
+            # else:
+            #     agent_type = AgentType.REGULAR
 
+            agent_type = AgentType.REGULAR
         
         if processing_mode == "Agent-based":
             input_shields = []
@@ -249,7 +251,11 @@ def tool_chat_page():
                     "type": "json_schema",
                     "json_schema": ReActOutput.model_json_schema(),
                 },
-                sampling_params={"strategy": {"type": "greedy"}, "max_tokens": max_tokens},
+                sampling_params={
+                    "strategy": get_strategy(temperature, top_p),
+                    "max_tokens": max_tokens,
+                    "repetition_penalty": repetition_penalty,
+                },
                 input_shields= input_shields,
                 output_shields= output_shields,
             )
@@ -261,7 +267,11 @@ def tool_chat_page():
                 model=model,
                 instructions=f"{updated_system_prompt} When you use a tool always respond with a summary of the result.",
                 tools=updated_toolgroup_selection,
-                sampling_params={"strategy": {"type": "greedy"}, "max_tokens": max_tokens},
+                sampling_params={
+                    "strategy": get_strategy(temperature, top_p),
+                    "max_tokens": max_tokens,
+                    "repetition_penalty": repetition_penalty,
+                },
                 input_shields= input_shields,
                 output_shields= output_shields,
             )
