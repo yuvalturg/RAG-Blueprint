@@ -3,4 +3,3 @@ pandas
 llama-stack-client==0.2.5
 streamlit-option-menu
 llama-stack==0.2.5
--e .
