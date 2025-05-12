@@ -164,14 +164,11 @@ upload-pdf:
 	@find $(PDF_DIR) -name "*.pdf" -type f | while read -r pdf_file; do \
 		echo "Uploading $${pdf_file}..."; \
 		test -f "$${pdf_file}" || { echo "Error: File $${pdf_file} not found"; continue; }; \
-		# Create a safe unique temporary filename using a timestamp and counter to prevent issues with special chars\
 		temp_name="tmp_$$(date +%s)_$${RANDOM}.pdf"; \
 		echo "Creating temporary file in minio pod with safe name: $${temp_name}"; \
 		cat "$${pdf_file}" | oc exec -i -n $(NAMESPACE) minio-0 -- bash -c "cat > /tmp/$${temp_name}"; \
-		# Extract original filename \
 		orig_name="$$(basename "$${pdf_file}")"; \
 		echo "Uploading file to bucket with original name: $${orig_name}"; \
-		# Copying file with temporary name, then renaming it to original name \
 		oc exec -n $(NAMESPACE) minio-0 -- bash -c "mc cp /tmp/$${temp_name} local/$(BUCKET_NAME)/$${temp_name} && \
 		mc mv local/$(BUCKET_NAME)/$${temp_name} \"local/$(BUCKET_NAME)/$${orig_name}\" && \
 		rm /tmp/$${temp_name}"; \
