@@ -179,3 +179,4 @@ cython_debug/
 deploy/helm/namespace
 deploy/helm/secrets
 uv.lock
+.DS_Store
